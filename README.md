@@ -15,8 +15,8 @@
 Get a high-level view of your "Spending Power." Zenith aggregates all your included money sources to give you a real-time understanding of your available liquidity, distinct from your total net worth.
 
 ### 🏦 Dynamic Money Sources
-Track your wealth across multiple dimensions. From traditional bank accounts and physical cash to crypto and investments, you can:
-*   **Toggle Inclusion**: Decide which assets contribute to your daily spending power.
+Track your wealth across multiple dimensions. Whether it's a Savings Account, physical Cash, or a Digital Wallet, you can:
+*   **Toggle Inclusion**: Decide which accounts contribute to your daily spending budget.
 *   **Multi-Account Tracking**: Real-time balance adjustments across all sources.
 *   **Custom Icons**: Personalize each source with SF Symbols.
 
@@ -67,48 +67,10 @@ Zenith isn't just a spreadsheet; it's a living environment.
 ### Installation
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/Zenith.git
+    git clone git@github.com:rishishAryal/Zenith.git
     ```
 2.  Open `Zenith.xcodeproj` in Xcode.
 3.  Select your target (iPhone/iPad) and press **Cmd + R** to run.
-
----
-
-## 📖 Comprehensive User Guide
-
-### 1. Onboarding & Initial Setup
-When you first launch Zenith, you'll be guided through a premium multi-step onboarding process:
-- **Feature Highlights**: Learn about Wealth Tracking and Financial Goals.
-- **Security Check**: Enable **Face ID** or **Touch ID** on the final slide to protect your records immediately.
-- **Data Seeding**: Zenith automatically seeds the database with a robust set of financial categories so you can start logging transactions right away.
-
-### 2. Mastering the Wealth Dashboard
-The Dashboard is your financial command center.
-- **Total Net Worth**: The aggregate value of all your connected Money Sources.
-- **Active Spending Power**: This is a unique Zenith metric. It only includes the balances of Money Sources that you have explicitly marked as "Include in Budget." 
-- **Quick Add**: Use the floating diamond button (`+`) in the center of the navigation bar to quickly record new income or expenses.
-
-### 3. Managing Money Sources
-Navigate to the **Wealth** or **Tools** section to manage your accounts:
-- **Adding Sources**: Tap the `+` icon to add a new account or asset.
-- **Icon Customization**: Choose from a curated list of SF Symbols to represent each source.
-- **Spending Power Toggle**: Edit any source to turn "Include in Monthly Budget" on or off. This allows you to track long-term assets separately from your daily spending cash.
-
-### 4. Intelligent Transactions & Categories
-Zenith makes expense tracking effortless:
-- **Logging**: Select a category, enter an amount, and choose which Money Source the funds are coming from/going to.
-- **Dynamic Categories**: Go to **Tools > Categories** to add your own custom categories with unique icons.
-- **Activity Filtering**: View recent activity on the dashboard or dive into the **Activity** tab for a full historical record.
-
-### 5. Achieving Savings Goals
-Visual progress is the key to consistency:
-- **Creating Goals**: Set a target amount and a deadline.
-- **Visual Feedback**: The dashboard displays visual rings that fill up as your allocated savings grow.
-- **Milestones**: Track progress percentages in real-time.
-
-### 6. Professional Financial Tools
-- **Subscriptions**: Log recurring payments to see a unified list of your monthly commitments.
-- **Settlements (Debts)**: Track "Who owes me" and "Who do I owe." Zenith handles the balancing so you always know your standing with others.
 
 ---
 
