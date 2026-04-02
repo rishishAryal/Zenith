@@ -28,19 +28,20 @@ struct AddTransactionView: View {
     
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                header
-                typeSelector
-                sourcePicker
-                amountSection
-                categorySection
-                noteSection
-                confirmButton
-                
-                Spacer()
+        VStack(spacing: 0) {
+            header
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    typeSelector
+                    sourcePicker
+                    amountSection
+                    categorySection
+                    noteSection
+                }
             }
         }
+       
         .onAppear {
             selectedSourceId = filteredSources.first?.id
             if selectedCategory.isEmpty {
@@ -62,28 +63,38 @@ struct AddTransactionView: View {
     
     private var header: some View {
         HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(AppTheme.onSurfaceVariant)
+                    .frame(width: 40, height: 40)
+                    .background(Color.white.opacity(0.1))
+                    .clipShape(Circle())
+            }
+            
+            Spacer()
+            
             Text(transactionType == .outgoing ? "New Entry" : "New Income")
-                .font(Font.headline(size: 24, weight: .bold))
+                .font(Font.headline(size: 20, weight: .bold))
                 .foregroundColor(AppTheme.onSurface)
             
             Spacer()
             
-            Button {
-                dismiss()
-            } label: {
-                Circle()
-                    .fill(Color.white.opacity(0.1))
+            Button { save() } label: {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
                     .frame(width: 40, height: 40)
-                    .overlay(
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(AppTheme.onSurfaceVariant)
-                    )
+                    .background(AppTheme.primaryGradient)
+                    .clipShape(Circle())
+                    .shadow(color: AppTheme.primary.opacity(0.3), radius: 10, x: 0, y: 5)
             }
+            .disabled(!canSave)
+            .opacity(canSave ? 1 : 0.5)
         }
         .padding(.horizontal, 30)
-        .padding(.top, 40)
-        .padding(.bottom, 40)
+        .padding(.top, 30)
+        .padding(.bottom, 20)
     }
     
     private var typeSelector: some View {
@@ -160,11 +171,11 @@ struct AddTransactionView: View {
                 .tracking(3)
             
             TextField("0.00", value: $amount, format: .currency(code: selectedCurrency))
-                .font(Font.headline(size: 64, weight: .bold))
+                .font(Font.headline(size: 44, weight: .bold))
                 .foregroundColor(AppTheme.onSurface)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
-                .fixedSize(horizontal: true, vertical: false)
+                .lineLimit(1)
                 .focused($isInputFocused)
         }
         .padding(.bottom, 40)
@@ -234,22 +245,6 @@ struct AddTransactionView: View {
         .padding(.bottom, 40)
     }
     
-    private var confirmButton: some View {
-        Button(action: save) {
-            Text("Confirm Transaction")
-                .font(Font.headline(size: 18, weight: .heavy))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
-                .background(AppTheme.primaryGradient)
-                .clipShape(Capsule())
-                .shadow(color: AppTheme.primary.opacity(0.3), radius: 20, x: 0, y: 10)
-        }
-        .padding(.horizontal, 30)
-        .padding(.bottom, 60)
-        .opacity(canSave ? 1 : 0.5)
-        .disabled(!canSave)
-    }
     
     private var canSave: Bool {
         (amount ?? 0) > 0 && selectedSourceId != nil

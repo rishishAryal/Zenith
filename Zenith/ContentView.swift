@@ -1,23 +1,43 @@
-import SwiftUI
-import SwiftData
 import LocalAuthentication
+import SwiftData
+import SwiftUI
 
 struct ContentView: View {
     @AppStorage("requiresFaceID") private var requiresFaceID = false
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var isUnlocked = false
+    @State private var showSplash = true
     @Environment(\.modelContext) private var modelContext
     @Query private var existingCategories: [Category]
     
     var body: some View {
-        Group {
-            if requiresFaceID && !isUnlocked {
-                LockedView(isUnlocked: $isUnlocked)
+        ZStack {
+            if showSplash {
+                SplashScreenView()
+                    .transition(.opacity)
             } else {
-                MainTabView()
+                Group {
+                    if !hasCompletedOnboarding {
+                        OnboardingView()
+                    } else if requiresFaceID && !isUnlocked {
+                        LockedView(isUnlocked: $isUnlocked)
+                    } else {
+                        NavigationStack {
+                            MainTabView()
+                        }
+                    }
+                }
             }
         }
         .onAppear {
             seedCategoriesIfNeeded()
+            
+            // Splash transition logic
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    showSplash = false
+                }
+            }
         }
     }
     
@@ -98,7 +118,7 @@ struct MainTabView: View {
                     }
                     .frame(maxWidth: .infinity)
                     
-                    TabBarButton(icon: "briefcase.fill", title: "Tools", isSelected: selectedTab == .tools) {
+                    TabBarButton(icon: "briefcase.fill", title: "Manage", isSelected: selectedTab == .tools) {
                         selectedTab = .tools
                     }
                     .frame(maxWidth: .infinity)
@@ -106,8 +126,7 @@ struct MainTabView: View {
                 .padding(.top, 10)
             }
             .padding(.horizontal, 15) // Slightly tighter
-            .padding(.bottom, 20)
-            
+            .padding(.bottom, 5)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .sheet(isPresented: $showAdd) {
@@ -180,7 +199,7 @@ struct LockedView: View {
         if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
             let reason = "Unlock Zenith to view your finances."
             
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authenticationError in
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
                 DispatchQueue.main.async {
                     if success {
                         withAnimation {

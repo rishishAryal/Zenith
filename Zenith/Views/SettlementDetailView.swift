@@ -8,8 +8,7 @@ struct SettlementDetailView: View {
     
     let settlement: Settlement
     
-    @State private var paymentAmount: Double?
-    @State private var showingPaymentField = false
+    @State private var showingPaymentSheet = false
     
     var progress: Double {
         guard settlement.amount > 0 else { return 0 }
@@ -148,9 +147,7 @@ struct SettlementDetailView: View {
                         // Action Button
                         if !settlement.isCompleted {
                             Button {
-                                withAnimation {
-                                    showingPaymentField.toggle()
-                                }
+                                showingPaymentSheet = true
                             } label: {
                                 HStack {
                                     Image(systemName: "plus.circle.fill")
@@ -163,6 +160,7 @@ struct SettlementDetailView: View {
                                 .background(AppTheme.primaryGradient)
                                 .clipShape(Capsule())
                                 .padding(.horizontal)
+                                .shadow(color: AppTheme.primary.opacity(0.3), radius: 15, x: 0, y: 10)
                             }
                         } else {
                             HStack {
@@ -174,48 +172,16 @@ struct SettlementDetailView: View {
                             .padding(.vertical, 20)
                         }
                         
-                        if showingPaymentField {
-                            VStack(spacing: 16) {
-                                TextField("Enter amount...", value: $paymentAmount, format: .number)
-                                    .keyboardType(.decimalPad)
-                                    .padding()
-                                    .background(AppTheme.surfaceContainer)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .padding(.horizontal)
-                                
-                                Button(action: applyPayment) {
-                                    Text("Apply Payment")
-                                        .font(.headline)
-                                        .foregroundColor(AppTheme.bgSurface)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 50)
-                                        .background(AppTheme.onSurface)
-                                        .clipShape(Capsule())
-                                        .padding(.horizontal)
-                                }
-                                .disabled((paymentAmount ?? 0) <= 0)
-                            }
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
-                        
                         Spacer().frame(height: 100)
                     }
                 }
             }
         }
         .navigationBarHidden(true)
-    }
-    
-    private func applyPayment() {
-        guard let amount = paymentAmount, amount > 0 else { return }
-        
-        withAnimation {
-            settlement.remainingAmount = max(settlement.remainingAmount - amount, 0)
-            if settlement.remainingAmount <= 0 {
-                settlement.isCompleted = true
-            }
-            showingPaymentField = false
-            paymentAmount = nil
+        .sheet(isPresented: $showingPaymentSheet) {
+            LogPaymentView(settlement: settlement)
+                .presentationDetents([.fraction(0.85)])
+                .presentationBackground(.ultraThinMaterial)
         }
     }
     

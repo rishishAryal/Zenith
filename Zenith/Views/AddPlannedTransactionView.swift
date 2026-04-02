@@ -12,6 +12,7 @@ struct AddPlannedTransactionView: View {
     @State private var selectedCategory: String = "Shop"
     @State private var note: String = ""
     @State private var dueDate: Date = .now
+    @FocusState private var isInputFocused: Bool
     
     let categories = [
         ("Shop", "cart.fill"),
@@ -28,6 +29,7 @@ struct AddPlannedTransactionView: View {
             
             VStack(spacing: 32) {
                 header
+                    .padding(.top, 10)
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
@@ -36,27 +38,48 @@ struct AddPlannedTransactionView: View {
                         dateSection
                         categorySection
                         noteSection
-                        
-                        Spacer().frame(height: 100)
                     }
                 }
-                
-                saveButton
             }
             .padding(24)
+            .onAppear {
+                if amount <= 0 { amount = 0 }
+            }
+            .onTapGesture {
+                isInputFocused = false
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        isInputFocused = false
+                    }
+                    .fontWeight(.bold)
+                    .foregroundColor(AppTheme.primary)
+                }
         }
     }
-    
+}
+
     private var header: some View {
         HStack {
-            Text("Plan Future Flow")
-                .font(Font.headline(size: 24, weight: .bold))
+            Button("Cancel") { dismiss() }
+                .foregroundColor(AppTheme.onSurfaceVariant)
+                .font(.headline)
+            
+            Spacer()
+            
+            Text("Plan Flow")
+                .font(Font.headline(size: 20, weight: .bold))
                 .foregroundColor(AppTheme.onSurface)
             
             Spacer()
             
-            Button("Cancel") { dismiss() }
-                .foregroundColor(AppTheme.onSurfaceVariant)
+            Button("Add") { savePlan() }
+                .font(.headline)
+                .foregroundColor(AppTheme.primary)
+                .disabled(amount <= 0)
+                .opacity(amount <= 0 ? 0.5 : 1)
         }
     }
     
@@ -80,6 +103,8 @@ struct AddPlannedTransactionView: View {
                 .keyboardType(.decimalPad)
                 .font(Font.headline(size: 32, weight: .bold))
                 .foregroundColor(AppTheme.onSurface)
+                .lineLimit(1)
+                .focused($isInputFocused)
                 .padding()
                 .background(AppTheme.surfaceContainer)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -129,26 +154,13 @@ struct AddPlannedTransactionView: View {
                 .tracking(2)
             
             TextField("e.g. Electricity, Bonus...", text: $note)
+                .focused($isInputFocused)
                 .padding()
                 .background(AppTheme.surfaceContainer)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
     
-    private var saveButton: some View {
-        Button(action: savePlan) {
-            Text("Add to Planned Flow")
-                .font(Font.headline(size: 18, weight: .bold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 60)
-                .background(AppTheme.primaryGradient)
-                .clipShape(Capsule())
-                .shadow(color: AppTheme.primary.opacity(0.3), radius: 15, x: 0, y: 10)
-        }
-        .disabled(amount <= 0)
-        .opacity(amount <= 0 ? 0.5 : 1)
-    }
     
     private func savePlan() {
         let plan = PlannedTransaction(

@@ -9,20 +9,36 @@ struct AddSettlementView: View {
     @State private var amount: Double?
     @State private var type: SettlementType = .receivable
     @State private var notes = ""
+    @FocusState private var isInputFocused: Bool
     
     var body: some View {
         ZStack {
             LivingBackground()
+                .onTapGesture {
+                    isInputFocused = false
+                }
             
             VStack(spacing: 32) {
                 HStack {
-                    Text("New Settlement")
-                        .font(Font.headline(size: 24, weight: .bold))
-                        .foregroundColor(AppTheme.onSurface)
-                    Spacer()
                     Button("Close") { dismiss() }
                         .foregroundColor(AppTheme.onSurfaceVariant)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text("Settlement")
+                        .font(Font.headline(size: 20, weight: .bold))
+                        .foregroundColor(AppTheme.onSurface)
+                    
+                    Spacer()
+                    
+                    Button("Register") { save() }
+                        .font(.headline)
+                        .foregroundColor(AppTheme.primary)
+                        .disabled(personName.isEmpty || (amount ?? 0) <= 0)
+                        .opacity(personName.isEmpty || (amount ?? 0) <= 0 ? 0.5 : 1)
                 }
+                .padding(.top, 10)
                 
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -31,6 +47,7 @@ struct AddSettlementView: View {
                             .foregroundColor(AppTheme.onSurfaceVariant)
                             .tracking(2)
                         TextField("Who is it?", text: $personName)
+                            .focused($isInputFocused)
                             .padding()
                             .background(AppTheme.surfaceContainer)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -42,7 +59,9 @@ struct AddSettlementView: View {
                             .foregroundColor(AppTheme.onSurfaceVariant)
                             .tracking(2)
                         TextField("0.00", value: $amount, format: .number)
+                            .focused($isInputFocused)
                             .keyboardType(.decimalPad)
+                            .lineLimit(1)
                             .padding()
                             .background(AppTheme.surfaceContainer)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -68,28 +87,25 @@ struct AddSettlementView: View {
                             .foregroundColor(AppTheme.onSurfaceVariant)
                             .tracking(2)
                         TextField("Any detail...", text: $notes)
+                            .focused($isInputFocused)
                             .padding()
                             .background(AppTheme.surfaceContainer)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 
-                Spacer()
-                
-                Button(action: save) {
-                    Text("Register Settlement")
-                        .font(Font.headline(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 60)
-                        .background(AppTheme.primaryGradient)
-                        .clipShape(Capsule())
-                        .shadow(color: AppTheme.primary.opacity(0.3), radius: 15, x: 0, y: 10)
-                }
-                .disabled(personName.isEmpty || (amount ?? 0) <= 0)
-                .opacity(personName.isEmpty || (amount ?? 0) <= 0 ? 0.5 : 1)
             }
             .padding(24)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    isInputFocused = false
+                }
+                .fontWeight(.bold)
+                .foregroundColor(AppTheme.primary)
+            }
         }
     }
     

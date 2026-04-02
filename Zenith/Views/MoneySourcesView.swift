@@ -147,13 +147,25 @@ struct AddSourceView: View {
             LivingBackground()
             VStack(spacing: 32) {
                 HStack {
-                    Text("New Source")
-                        .font(Font.headline(size: 24, weight: .bold))
-                        .foregroundColor(AppTheme.onSurface)
-                    Spacer()
                     Button("Close") { dismiss() }
                         .foregroundColor(AppTheme.onSurfaceVariant)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text("New Source")
+                        .font(Font.headline(size: 20, weight: .bold))
+                        .foregroundColor(AppTheme.onSurface)
+                    
+                    Spacer()
+                    
+                    Button("Register") { save() }
+                        .font(.headline)
+                        .foregroundColor(AppTheme.primary)
+                        .disabled(name.isEmpty)
+                        .opacity(name.isEmpty ? 0.5 : 1)
                 }
+                .padding(.top, 10)
                 
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -209,17 +221,6 @@ struct AddSourceView: View {
                 
                 Spacer()
                 
-                Button(action: save) {
-                    Text("Register Source")
-                        .font(Font.headline(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 60)
-                        .background(AppTheme.primaryGradient)
-                        .clipShape(Capsule())
-                }
-                .disabled(name.isEmpty)
-                .opacity(name.isEmpty ? 0.5 : 1)
             }
             .padding(24)
         }
@@ -253,13 +254,25 @@ struct EditSourceView: View {
             LivingBackground()
             VStack(spacing: 32) {
                 HStack {
-                    Text("Edit Source")
-                        .font(Font.headline(size: 24, weight: .bold))
-                        .foregroundColor(AppTheme.onSurface)
-                    Spacer()
                     Button("Close") { dismiss() }
                         .foregroundColor(AppTheme.onSurfaceVariant)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text("Edit Source")
+                        .font(Font.headline(size: 20, weight: .bold))
+                        .foregroundColor(AppTheme.onSurface)
+                    
+                    Spacer()
+                    
+                    Button("Update") { save() }
+                        .font(.headline)
+                        .foregroundColor(AppTheme.primary)
+                        .disabled(name.isEmpty)
+                        .opacity(name.isEmpty ? 0.5 : 1)
                 }
+                .padding(.top, 10)
                 
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -288,16 +301,6 @@ struct EditSourceView: View {
                 Spacer()
                 
                 VStack(spacing: 12) {
-                    Button(action: save) {
-                        Text("Update Source")
-                            .font(Font.headline(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 60)
-                            .background(AppTheme.primaryGradient)
-                            .clipShape(Capsule())
-                    }
-                    
                     Button(role: .destructive, action: delete) {
                         Text("Remove Source")
                             .font(Font.headline(size: 16))

@@ -41,105 +41,103 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                LivingBackground()
-                
-                VStack(spacing: 0) {
-                    // Top Navigation Header
-                    HStack {
-                        Text("Zenith")
-                            .font(Font.headline(size: 24, weight: .black))
-                            .foregroundStyle(AppTheme.primaryGradient)
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 10)
-                    .padding(.bottom, 20)
+        ZStack {
+            LivingBackground()
+            
+            VStack(spacing: 0) {
+                // Top Navigation Header
+                HStack {
+                    Text("Zenith")
+                        .font(Font.headline(size: 24, weight: .black))
+                        .foregroundStyle(AppTheme.primaryGradient)
                     
-                    ScrollView {
-                        VStack(spacing: 30) {
-                        
-                        // Hero Ring
-                        HeroRing(
-                            totalSpent: totalSpent,
-                            remaining: remaining,
-                            progress: progress,
-                            currency: selectedCurrency
-                        )
-                        .padding(.top, 20)
-                        
-                        // Wealth Overview Section (New)
-                        if !goals.isEmpty || !subscriptions.isEmpty {
-                            VStack(alignment: .leading, spacing: 20) {
-                                Text("WEALTH OVERVIEW")
-                                    .font(Font.bodyText(size: 10, weight: .bold))
-                                    .foregroundColor(AppTheme.onSurfaceVariant)
-                                    .tracking(2)
-                                    .padding(.horizontal)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 16) {
-                                        // Savings Goals Cards
-                                        ForEach(goals) { goal in
-                                            NavigationLink(destination: SavingsGoalsView(isNavigated: true)) {
-                                                DashboardGoalCard(goal: goal, currency: selectedCurrency)
-                                            }
-                                            .buttonStyle(.plain)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+                .padding(.bottom, 20)
+                
+                ScrollView {
+                    VStack(spacing: 30) {
+                    
+                    // Hero Ring
+                    HeroRing(
+                        totalSpent: totalSpent,
+                        remaining: remaining,
+                        progress: progress,
+                        currency: selectedCurrency
+                    )
+                    .padding(.top, 20)
+                    
+                    // Wealth Overview Section (New)
+                    if !goals.isEmpty || !subscriptions.isEmpty {
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text("WEALTH OVERVIEW")
+                                .font(Font.bodyText(size: 10, weight: .bold))
+                                .foregroundColor(AppTheme.onSurfaceVariant)
+                                .tracking(2)
+                                .padding(.horizontal)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 16) {
+                                    // Savings Goals Cards
+                                    ForEach(goals) { goal in
+                                        NavigationLink(destination: SavingsGoalsView(isNavigated: true)) {
+                                            DashboardGoalCard(goal: goal, currency: selectedCurrency)
                                         }
-                                        
-                                        // Subscriptions Summary Card
-                                        if !subscriptions.isEmpty {
-                                            NavigationLink(destination: SubscriptionsView()) {
-                                                DashboardSubscriptionCard(count: subscriptions.count, total: totalSubscriptionsAmount, currency: selectedCurrency)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .padding(.horizontal)
-                                }
-                            }
-                        }
-                        
-                        // Bento Insights
-                        VStack(spacing: 20) {
-                            if !transactions.filter({ $0.safeType == .outgoing }).isEmpty {
-                                EquityPulseChart(transactions: transactions.filter({ $0.safeType == .outgoing }), currency: selectedCurrency)
-                            }
-                            
-                            let outgoing = transactions.filter({ $0.safeType == .outgoing })
-                            let grouped = Dictionary(grouping: outgoing) { $0.category }
-                            let topCategories = grouped.map { (key, value) in
-                                (category: key, amount: value.reduce(0) { $0 + $1.amount })
-                            }.sorted { $0.amount > $1.amount }
-                            
-                            if !topCategories.isEmpty {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-                                    ForEach(Array(topCategories), id: \.category) { item in
-                                        NavigationLink(destination: CategoryDetailView(categoryName: item.category)) {
-                                            let meta = iconAndColor(for: item.category)
-                                            InsightCard(icon: meta.0, title: item.category, amount: item.amount, currency: selectedCurrency, color: meta.1)
+                                    
+                                    // Subscriptions Summary Card
+                                    if !subscriptions.isEmpty {
+                                        NavigationLink(destination: SubscriptionsView()) {
+                                            DashboardSubscriptionCard(count: subscriptions.count, total: totalSubscriptionsAmount, currency: selectedCurrency)
                                         }
                                         .buttonStyle(.plain)
                                     }
                                 }
+                                .padding(.horizontal)
                             }
-                            // Removed manual Transfer Wealth button as per specification
                         }
-                        .padding(.horizontal)
-                        
-                        
-                        // Bottom Padding for custom tab bar + Floating Action Button
-                        Spacer().frame(height: 180)
                     }
+                    
+                    // Bento Insights
+                    VStack(spacing: 20) {
+                        if !transactions.filter({ $0.safeType == .outgoing }).isEmpty {
+                            EquityPulseChart(transactions: transactions.filter({ $0.safeType == .outgoing }), currency: selectedCurrency)
+                        }
+                        
+                        let outgoing = transactions.filter({ $0.safeType == .outgoing })
+                        let grouped = Dictionary(grouping: outgoing) { $0.category }
+                        let topCategories = grouped.map { (key, value) in
+                            (category: key, amount: value.reduce(0) { $0 + $1.amount })
+                        }.sorted { $0.amount > $1.amount }
+                        
+                        if !topCategories.isEmpty {
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
+                                ForEach(Array(topCategories), id: \.category) { item in
+                                    NavigationLink(destination: CategoryDetailView(categoryName: item.category)) {
+                                        let meta = iconAndColor(for: item.category)
+                                        InsightCard(icon: meta.0, title: item.category, amount: item.amount, currency: selectedCurrency, color: meta.1)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        // Removed manual Transfer Wealth button as per specification
+                    }
+                    .padding(.horizontal)
+                    
+                    
+                    // Bottom Padding for custom tab bar + Floating Action Button
+                    Spacer().frame(height: 180)
                 }
             }
         }
         .navigationBarHidden(true)
     }
 }
-    
+
     private func iconAndColor(for categoryName: String) -> (String, Color) {
         if let category = categories.first(where: { $0.name.lowercased() == categoryName.lowercased() }) {
             return (category.iconName, Color(hex: category.colorHex))

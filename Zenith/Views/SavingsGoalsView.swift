@@ -222,13 +222,27 @@ struct AddGoalView: View {
             LivingBackground()
             VStack(spacing: 32) {
                 HStack {
-                    Text("New Goal")
-                        .font(Font.headline(size: 24, weight: .bold))
-                        .foregroundColor(AppTheme.onSurface)
-                    Spacer()
                     Button("Close") { dismiss() }
                         .foregroundColor(AppTheme.onSurfaceVariant)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text("New Goal")
+                        .font(Font.headline(size: 20, weight: .bold))
+                        .foregroundColor(AppTheme.onSurface)
+                    
+                    Spacer()
+                    
+                    Button("Register") { save() }
+                        .font(.headline)
+                        .foregroundColor(AppTheme.primary)
+                        .disabled(name.isEmpty || targetAmount <= 0)
+                        .opacity(name.isEmpty || targetAmount <= 0 ? 0.5 : 1)
                 }
+                .padding(.top, 10)
+                
+               
                 
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -276,15 +290,6 @@ struct AddGoalView: View {
                 
                 Spacer()
                 
-                Button(action: save) {
-                    Text("Initialize Pot")
-                        .font(Font.headline(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 60)
-                        .background(AppTheme.primaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                }
             }
             .padding(24)
         }
@@ -304,11 +309,31 @@ struct DepositView: View {
     @State private var amount: Double = 0
     
     var body: some View {
-        VStack(spacing: 24) {
-            Text("Invest in \(goal.name)")
-                .font(Font.headline(size: 20, weight: .bold))
-                .foregroundColor(AppTheme.onSurface)
-            
+        VStack(spacing: 32) {
+            HStack {
+                Button("Close") { dismiss() }
+                    .foregroundColor(AppTheme.onSurfaceVariant)
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text("Invest in \(goal.name)")
+                    .font(Font.headline(size: 18, weight: .bold))
+                    .foregroundColor(AppTheme.onSurface)
+                
+                Spacer()
+                
+                Button("Save") {
+                    goal.currentAmount += amount
+                    dismiss()
+                }
+                .font(.headline)
+                .foregroundColor(AppTheme.primary)
+                .disabled(amount <= 0)
+                .opacity(amount <= 0 ? 0.5 : 1)
+            }
+            .padding(.top, 10)
+            Spacer().frame(height: 20)
             TextField("Amount", value: $amount, format: .number)
                 .keyboardType(.decimalPad)
                 .font(Font.headline(size: 32, weight: .heavy))
@@ -317,18 +342,7 @@ struct DepositView: View {
                 .background(AppTheme.surfaceContainer)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             
-            Button(action: {
-                goal.currentAmount += amount
-                dismiss()
-            }) {
-                Text("Deposit Capital")
-                    .font(Font.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(AppTheme.primaryGradient)
-                    .clipShape(Capsule())
-            }
+            Spacer()
         }
         .padding(32)
     }

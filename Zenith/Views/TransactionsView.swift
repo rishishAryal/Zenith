@@ -76,126 +76,124 @@ struct TransactionsView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                LivingBackground()
+        ZStack {
+            LivingBackground()
+            
+            VStack(spacing: 0) {
+                // Custom Header over glass
+                HStack {
+                    Text("Transactions")
+                        .font(Font.headline(size: 24, weight: .bold))
+                        .foregroundColor(AppTheme.onSurface)
+                    
+                    Spacer()
+                    
+                    Text("Zenith")
+                        .font(Font.headline(size: 24, weight: .black))
+                        .foregroundStyle(AppTheme.primaryGradient)
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
                 
-                VStack(spacing: 0) {
-                    // Custom Header over glass
+                // Tab Picker
+                Picker("Tab", selection: $selectedTab) {
+                    ForEach(TransactionTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, 10)
+                .colorMultiply(AppTheme.primary)
+                
+                // Filter and Search Toolbar
+                VStack(spacing: 12) {
+                    // Search Bar
                     HStack {
-                        Text("Transactions")
-                            .font(Font.headline(size: 24, weight: .bold))
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(AppTheme.onSurfaceVariant)
+                        TextField("Search notes or categories...", text: $searchText)
                             .foregroundColor(AppTheme.onSurface)
+                    }
+                    .padding(12)
+                    .background(AppTheme.surfaceContainer)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.top)
+                    
+                    // Filters & Add Button
+                    HStack {
+                        Menu {
+                            Picker("Filter", selection: $filterOption) {
+                                ForEach(FilterOption.allCases) { option in
+                                    Text(option.rawValue).tag(option)
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                Text(filterOption.rawValue)
+                            }
+                            .font(Font.bodyText(size: 14, weight: .bold))
+                            .foregroundColor(AppTheme.primary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.primary.opacity(0.1))
+                            .clipShape(Capsule())
+                        }
                         
                         Spacer()
                         
-                        Text("Zenith")
-                            .font(Font.headline(size: 24, weight: .black))
-                            .foregroundStyle(AppTheme.primaryGradient)
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 10)
-                    
-                    // Tab Picker
-                    Picker("Tab", selection: $selectedTab) {
-                        ForEach(TransactionTab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                    .padding(.top, 10)
-                    .colorMultiply(AppTheme.primary)
-                    
-                    // Filter and Search Toolbar
-                    VStack(spacing: 12) {
-                        // Search Bar
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(AppTheme.onSurfaceVariant)
-                            TextField("Search notes or categories...", text: $searchText)
-                                .foregroundColor(AppTheme.onSurface)
-                        }
-                        .padding(12)
-                        .background(AppTheme.surfaceContainer)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .padding(.top)
-                        
-                        // Filters & Add Button
-                        HStack {
+                        if selectedTab == .planned {
+                            Button(action: { showingAddPlanned = true }) {
+                                HStack {
+                                    Image(systemName: "clock.badge.plus")
+                                    Text("NEW PLAN")
+                                }
+                                .font(Font.bodyText(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(AppTheme.primaryGradient)
+                                .clipShape(Capsule())
+                                .shadow(color: AppTheme.primary.opacity(0.3), radius: 10)
+                            }
+                        } else {
                             Menu {
-                                Picker("Filter", selection: $filterOption) {
-                                    ForEach(FilterOption.allCases) { option in
+                                Picker("Sort", selection: $sortOption) {
+                                    ForEach(SortOption.allCases) { option in
                                         Text(option.rawValue).tag(option)
                                     }
                                 }
                             } label: {
                                 HStack {
-                                    Image(systemName: "line.3.horizontal.decrease.circle")
-                                    Text(filterOption.rawValue)
+                                    Text(sortOption.rawValue)
+                                    Image(systemName: "arrow.up.arrow.down")
                                 }
                                 .font(Font.bodyText(size: 14, weight: .bold))
-                                .foregroundColor(AppTheme.primary)
+                                .foregroundColor(AppTheme.onSurfaceVariant)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(AppTheme.primary.opacity(0.1))
+                                .background(AppTheme.surfaceContainer)
                                 .clipShape(Capsule())
-                            }
-                            
-                            Spacer()
-                            
-                            if selectedTab == .planned {
-                                Button(action: { showingAddPlanned = true }) {
-                                    HStack {
-                                        Image(systemName: "clock.badge.plus")
-                                        Text("NEW PLAN")
-                                    }
-                                    .font(Font.bodyText(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(AppTheme.primaryGradient)
-                                    .clipShape(Capsule())
-                                    .shadow(color: AppTheme.primary.opacity(0.3), radius: 10)
-                                }
-                            } else {
-                                Menu {
-                                    Picker("Sort", selection: $sortOption) {
-                                        ForEach(SortOption.allCases) { option in
-                                            Text(option.rawValue).tag(option)
-                                        }
-                                    }
-                                } label: {
-                                    HStack {
-                                        Text(sortOption.rawValue)
-                                        Image(systemName: "arrow.up.arrow.down")
-                                    }
-                                    .font(Font.bodyText(size: 14, weight: .bold))
-                                    .foregroundColor(AppTheme.onSurfaceVariant)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(AppTheme.surfaceContainer)
-                                    .clipShape(Capsule())
-                                }
                             }
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 20)
-                    
-                    if selectedTab == .history {
-                        historyListView
-                    } else {
-                        PlannedFlowView(searchText: searchText, filterOption: filterOption)
-                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 20)
+                
+                if selectedTab == .history {
+                    historyListView
+                } else {
+                    PlannedFlowView(searchText: searchText, filterOption: filterOption)
                 }
             }
-            .navigationBarHidden(true)
-            .sheet(isPresented: $showingAddPlanned) {
-                AddPlannedTransactionView()
-                    .presentationDetents([.fraction(0.85)])
-                    .presentationBackground(.ultraThinMaterial)
-            }
+        }
+        .navigationBarHidden(true)
+        .sheet(isPresented: $showingAddPlanned) {
+            AddPlannedTransactionView()
+                .presentationDetents([.fraction(0.85)])
+                .presentationBackground(.ultraThinMaterial)
         }
     }
     

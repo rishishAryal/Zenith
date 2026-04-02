@@ -166,13 +166,25 @@ struct AddSubscriptionView: View {
             
             VStack(spacing: 32) {
                 HStack {
-                    Text("Add Subscription")
-                        .font(Font.headline(size: 24, weight: .bold))
-                        .foregroundColor(AppTheme.onSurface)
-                    Spacer()
                     Button("Cancel") { dismiss() }
                         .foregroundColor(AppTheme.onSurfaceVariant)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text("New Subscription")
+                        .font(Font.headline(size: 20, weight: .bold))
+                        .foregroundColor(AppTheme.onSurface)
+                    
+                    Spacer()
+                    
+                    Button("Save") { save() }
+                        .font(.headline)
+                        .foregroundColor(AppTheme.primary)
+                        .disabled(name.isEmpty || amount <= 0)
+                        .opacity(name.isEmpty || amount <= 0 ? 0.5 : 1)
                 }
+                .padding(.top, 10)
                 
                 VStack(spacing: 24) {
                     // Name
@@ -248,16 +260,6 @@ struct AddSubscriptionView: View {
                 
                 Spacer()
                 
-                Button(action: save) {
-                    Text("Save Subscription")
-                        .font(Font.headline(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 60)
-                        .background(AppTheme.primaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: AppTheme.primary.opacity(0.3), radius: 15, x: 0, y: 10)
-                }
             }
             .padding(24)
         }
