@@ -124,7 +124,6 @@ struct DashboardView: View {
                                 }
                             }
                         }
-                        // Removed manual Transfer Wealth button as per specification
                     }
                     .padding(.horizontal)
                     

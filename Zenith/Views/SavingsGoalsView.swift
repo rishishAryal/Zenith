@@ -159,32 +159,32 @@ struct GoalCard: View {
                 }
             }
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(goal.name)
-                    .font(Font.headline(size: 16, weight: .bold))
+                    .font(Font.bodyText(size: 14, weight: .semibold))
                     .foregroundColor(AppTheme.onSurface)
                 
-                Text(goal.targetAmount, format: .currency(code: selectedCurrency))
-                    .font(Font.bodyText(size: 12, weight: .bold))
-                    .foregroundColor(AppTheme.onSurfaceVariant)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(goal.currentAmount, format: .currency(code: selectedCurrency))
+                        .font(Font.headline(size: 24, weight: .bold))
+                        .foregroundColor(AppTheme.primary)
+                    
+                    Text("of \(goal.targetAmount.formatted(.currency(code: selectedCurrency)))")
+                        .font(Font.bodyText(size: 12))
+                        .foregroundColor(AppTheme.onSurfaceVariant)
+                }
             }
             
-            VStack(alignment: .trailing, spacing: 8) {
-                // Progress Bar
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(AppTheme.surfaceContainer)
-                        Capsule().fill(AppTheme.primaryGradient)
-                            .frame(width: geo.size.width * CGFloat(goal.progress))
-                            .shadow(color: AppTheme.primary.opacity(0.3), radius: 5)
-                            .animation(.spring(), value: goal.currentAmount)
-                    }
-                }
-                .frame(height: 6)
+            // Progress Bar
+            let progress = min(goal.currentAmount / goal.targetAmount, 1.0)
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(AppTheme.surfaceContainer)
+                    .frame(height: 6)
                 
-                Text("\(Int(goal.progress * 100))%")
-                    .font(Font.bodyText(size: 10, weight: .heavy))
-                    .foregroundColor(AppTheme.primary)
+                Capsule()
+                    .fill(Color(hex: goal.colorHex))
+                    .frame(width: max(0, progress * 140), height: 6)
             }
         }
         .padding(20)
@@ -206,7 +206,6 @@ struct GoalCard: View {
         }
     }
 }
-
 struct AddGoalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss

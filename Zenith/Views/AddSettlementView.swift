@@ -39,7 +39,7 @@ struct AddSettlementView: View {
                         .opacity(personName.isEmpty || (amount ?? 0) <= 0 ? 0.5 : 1)
                 }
                 .padding(.top, 10)
-                
+                Spacer().frame(height: 20)
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("PERSON NAME")
@@ -93,7 +93,7 @@ struct AddSettlementView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
-                
+                Spacer()
             }
             .padding(24)
         }
