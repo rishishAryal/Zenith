@@ -26,6 +26,9 @@ struct AddPlannedTransactionView: View {
     var body: some View {
         ZStack {
             LivingBackground()
+                .onTapGesture {
+                    isInputFocused = false
+                }
             
             VStack(spacing: 32) {
                 header
@@ -44,9 +47,6 @@ struct AddPlannedTransactionView: View {
             .padding(24)
             .onAppear {
                 if amount <= 0 { amount = 0 }
-            }
-            .onTapGesture {
-                isInputFocused = false
             }
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
