@@ -1,10 +1,8 @@
 import SwiftUI
-import SwiftData
 
 struct CategorySettingsView: View {
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Category.name) private var categories: [Category]
     @State private var showingAddSheet = false
     
     private let columns = [
@@ -17,7 +15,7 @@ struct CategorySettingsView: View {
             LivingBackground()
             
             VStack(spacing: 0) {
-                // Header (Circular Back Button style consistent with app)
+                // Header
                 HStack {
                     Button(action: { dismiss() }) {
                         Circle()
@@ -53,7 +51,7 @@ struct CategorySettingsView: View {
                 
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(categories) { category in
+                        ForEach(appViewModel.categories) { category in
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     ZStack {
@@ -70,7 +68,9 @@ struct CategorySettingsView: View {
                                     
                                     if category.name != "General" {
                                         Button(action: {
-                                            modelContext.delete(category)
+                                            Task {
+                                                await appViewModel.deleteCategory(category)
+                                            }
                                         }) {
                                             Image(systemName: "trash")
                                                 .font(.system(size: 14))
@@ -97,20 +97,23 @@ struct CategorySettingsView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingAddSheet) {
             AddCategoryView()
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.8)])
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .refreshable {
+            await appViewModel.refresh(categories: [.categories])
         }
     }
 }
 
 struct AddCategoryView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
     @State private var selectedIcon = "tag.fill"
     
-    // Curated list of SF Symbols for finance/lifestyle
     private let icons = [
         "tag.fill", "cart.fill", "bag.fill", "fork.knife", "cup.and.saucer.fill",
         "airplane", "car.fill", "bus.fill", "bolt.fill", "drop.fill",
@@ -172,7 +175,13 @@ struct AddCategoryView: View {
             
             Spacer()
             
-            Button(action: save) {
+            Button(action: {
+                Task {
+                    let newCategory = Category(name: name, iconName: selectedIcon)
+                    await appViewModel.addCategory(newCategory)
+                    dismiss()
+                }
+            }) {
                 Text("Create Category")
                     .font(Font.headline(size: 18, weight: .bold))
                     .foregroundColor(.white)
@@ -190,11 +199,5 @@ struct AddCategoryView: View {
             .disabled(name.isEmpty)
         }
         .padding(24)
-    }
-    
-    private func save() {
-        let newCategory = Category(name: name, iconName: selectedIcon)
-        modelContext.insert(newCategory)
-        dismiss()
     }
 }

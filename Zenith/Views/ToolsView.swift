@@ -1,8 +1,9 @@
 import SwiftUI
-import SwiftData
+import Combine
+
 @MainActor
 struct ToolsView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @AppStorage("requiresFaceID") private var requiresFaceID = false
     @AppStorage("currency") private var selectedCurrency = "USD"
     
@@ -32,164 +33,196 @@ struct ToolsView: View {
                 ScrollView {
                     VStack(spacing: 30) {
                         
-                    // Tools Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("TOOLS")
-                            .font(Font.bodyText(size: 10, weight: .bold))
-                            .foregroundColor(AppTheme.onSurfaceVariant)
-                            .tracking(2)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 0) {
-                            NavigationLink(destination: MoneySourcesView()) {
-                                SettingsRow(
-                                    icon: "creditcard",
-                                    title: "Money Sources",
-                                    subtitle: "Manage your accounts and toggle their inclusion in your spending power.",
-                                    iconColor: AppTheme.primary
-                                )
+                        // Tools Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("TOOLS")
+                                .font(Font.bodyText(size: 10, weight: .bold))
+                                .foregroundColor(AppTheme.onSurfaceVariant)
+                                .tracking(2)
+                                .padding(.horizontal)
+                            
+                            VStack(spacing: 0) {
+                                NavigationLink(destination: MoneySourcesView().environmentObject(appViewModel)) {
+                                    SettingsRow(
+                                        icon: "creditcard",
+                                        title: "Money Sources",
+                                        subtitle: "Manage your accounts and toggle their inclusion in your spending power.",
+                                        iconColor: AppTheme.primary
+                                    )
+                                }
+                                
+                                Divider().background(AppTheme.outline.opacity(0.1)).padding(.horizontal, 20)
+                                
+                                NavigationLink(destination: SettlementsView().environmentObject(appViewModel)) {
+                                    SettingsRow(
+                                        icon: "arrow.left.arrow.right",
+                                        title: "Settlements",
+                                        subtitle: "Track who owes you and who you owe in one place.",
+                                        iconColor: AppTheme.tertiary
+                                    )
+                                }
                             }
+                            .glassCard()
+                        }
+                        .padding(.horizontal)
+                        
+                        // Wealth Management section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("WEALTH MANAGEMENT")
+                                .font(Font.bodyText(size: 10, weight: .bold))
+                                .foregroundColor(AppTheme.onSurfaceVariant)
+                                .tracking(2)
+                                .padding(.horizontal)
                             
-                            Divider().background(AppTheme.outline.opacity(0.1)).padding(.horizontal, 20)
-                            
-                            NavigationLink(destination: SettlementsView()) {
+                            VStack(spacing: 0) {
+                                NavigationLink(destination: SubscriptionsView().environmentObject(appViewModel)) {
+                                    SettingsRow(
+                                        icon: "calendar.badge.clock",
+                                        title: "Subscriptions",
+                                        subtitle: "Monitor and manage your recurring monthly payments.",
+                                        iconColor: AppTheme.primary
+                                    )
+                                }
+                                
+                                Divider().background(AppTheme.outline.opacity(0.1)).padding(.horizontal, 20)
+                                
+                                NavigationLink(destination: SavingsGoalsView(isNavigated: true).environmentObject(appViewModel)) {
+                                    SettingsRow(
+                                        icon: "target",
+                                        title: "Savings Goals",
+                                        subtitle: "Plan and track progress for your major life milestones.",
+                                        iconColor: AppTheme.secondary
+                                    )
+                                }
+                            }
+                            .glassCard()
+                        }
+                        .padding(.horizontal)
+                        
+                        // Security & Preferences
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("PREFERENCES")
+                                .font(Font.bodyText(size: 10, weight: .bold))
+                                .foregroundColor(AppTheme.onSurfaceVariant)
+                                .tracking(2)
+                                .padding(.horizontal)
+                                
+                            NavigationLink(destination: CategorySettingsView().environmentObject(appViewModel)) {
                                 SettingsRow(
-                                    icon: "arrow.left.arrow.right",
-                                    title: "Settlements",
-                                    subtitle: "Track who owes you and who you owe in one place.",
+                                    icon: "tag",
+                                    title: "Manage Categories",
+                                    subtitle: "Customize transaction categories and SF Symbols.",
                                     iconColor: AppTheme.tertiary
                                 )
                             }
-                        }
-                        .glassCard()
-                    }
-                    .padding(.horizontal)
-                        
-                    // Wealth Management section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("WEALTH MANAGEMENT")
-                            .font(Font.bodyText(size: 10, weight: .bold))
-                            .foregroundColor(AppTheme.onSurfaceVariant)
-                            .tracking(2)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 0) {
-                            NavigationLink(destination: SubscriptionsView()) {
-                                SettingsRow(
-                                    icon: "calendar.badge.clock",
-                                    title: "Subscriptions",
-                                    subtitle: "Monitor and manage your recurring monthly payments.",
-                                    iconColor: AppTheme.primary
-                                )
-                            }
+                            .glassCard()
                             
-                            Divider().background(AppTheme.outline.opacity(0.1)).padding(.horizontal, 20)
-                            
-                            NavigationLink(destination: SavingsGoalsView(isNavigated: true)) {
-                                SettingsRow(
-                                    icon: "target",
-                                    title: "Savings Goals",
-                                    subtitle: "Plan and track progress for your major life milestones.",
-                                    iconColor: AppTheme.secondary
-                                )
-                            }
-                        }
-                        .glassCard()
-                    }
-                    .padding(.horizontal)
-                    
-                    // Security & Preferences
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("PREFERENCES")
-                            .font(Font.bodyText(size: 10, weight: .bold))
-                            .foregroundColor(AppTheme.onSurfaceVariant)
-                            .tracking(2)
-                            .padding(.horizontal)
-                            
-                        NavigationLink(destination: CategorySettingsView()) {
-                            SettingsRow(
-                                icon: "tag",
-                                title: "Manage Categories",
-                                subtitle: "Customize transaction categories and SF Symbols.",
-                                iconColor: AppTheme.tertiary
-                            )
-                        }
-                        .glassCard()
-                        
-                        // FaceID
-                        HStack(spacing: 16) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(AppTheme.primary.opacity(0.1))
-                                    .frame(width: 44, height: 44)
-                                
-                                Image(systemName: "faceid")
-                                    .foregroundColor(AppTheme.primary)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("FaceID")
-                                    .font(Font.headline(size: 18, weight: .bold))
-                                    .foregroundColor(AppTheme.onSurface)
-                                
-                                Text("Lock app access with biometrics.")
-                                    .font(Font.bodyText(size: 13))
-                                    .foregroundColor(AppTheme.onSurfaceVariant)
-                            }
-                            
-                            Spacer()
-                            
-                            Toggle("", isOn: $requiresFaceID)
-                                .labelsHidden()
-                                .tint(AppTheme.primary)
-                        }
-                        .padding(16)
-                        .glassCard()
-                        
-                        // Currency
-                        HStack(spacing: 16) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(AppTheme.tertiary.opacity(0.1))
-                                    .frame(width: 44, height: 44)
-                                
-                                Image(systemName: "globe")
-                                    .foregroundColor(AppTheme.tertiary)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Currency")
-                                    .font(Font.headline(size: 18, weight: .bold))
-                                    .foregroundColor(AppTheme.onSurface)
-                                
-                                Text("Select your primary currency.")
-                                    .font(Font.bodyText(size: 13))
-                                    .foregroundColor(AppTheme.onSurfaceVariant)
-                            }
-                            
-                            Spacer()
-                            
-                            Picker("Currency", selection: $selectedCurrency) {
-                                ForEach(currencies, id: \.self) { c in
-                                    Text(c).tag(c)
+                            // FaceID
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(AppTheme.primary.opacity(0.1))
+                                        .frame(width: 44, height: 44)
+                                    
+                                    Image(systemName: "faceid")
+                                        .foregroundColor(AppTheme.primary)
                                 }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("FaceID")
+                                        .font(Font.headline(size: 18, weight: .bold))
+                                        .foregroundColor(AppTheme.onSurface)
+                                    
+                                    Text("Lock app access with biometrics.")
+                                        .font(Font.bodyText(size: 13))
+                                        .foregroundColor(AppTheme.onSurfaceVariant)
+                                }
+                                
+                                Spacer()
+                                
+                                Toggle("", isOn: $requiresFaceID)
+                                    .labelsHidden()
+                                    .tint(AppTheme.primary)
                             }
-                            .tint(AppTheme.onSurface)
-                            .font(.headline)
+                            .padding(16)
+                            .glassCard()
+                            
+                            // Currency
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(AppTheme.tertiary.opacity(0.1))
+                                        .frame(width: 44, height: 44)
+                                    
+                                    Image(systemName: "globe")
+                                        .foregroundColor(AppTheme.tertiary)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Currency")
+                                        .font(Font.headline(size: 18, weight: .bold))
+                                        .foregroundColor(AppTheme.onSurface)
+                                    
+                                    Text("Select your primary currency.")
+                                        .font(Font.bodyText(size: 13))
+                                        .foregroundColor(AppTheme.onSurfaceVariant)
+                                }
+                                
+                                Spacer()
+                                
+                                Picker("Currency", selection: $selectedCurrency) {
+                                    ForEach(currencies, id: \.self) { c in
+                                        Text(c).tag(c)
+                                    }
+                                }
+                                .tint(AppTheme.onSurface)
+                                .font(.headline)
+                            }
+                            .padding(16)
+                            .glassCard()
                         }
-                        .padding(16)
-                        .glassCard()
+                        .padding(.horizontal)
+                        
+                        // Account Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("ACCOUNT")
+                                .font(Font.bodyText(size: 10, weight: .bold))
+                                .foregroundColor(AppTheme.onSurfaceVariant)
+                                .tracking(2)
+                                .padding(.horizontal)
+                            
+                            Button(action: {
+                                AuthManager.shared.logout()
+                            }) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(AppTheme.error.opacity(0.1))
+                                            .frame(width: 44, height: 44)
+                                        
+                                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                                            .foregroundColor(AppTheme.error)
+                                    }
+                                    
+                                    Text("Logout")
+                                        .font(Font.headline(size: 18, weight: .bold))
+                                        .foregroundColor(AppTheme.error)
+                                    
+                                    Spacer()
+                                }
+                                .padding(16)
+                                .glassCard()
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        Spacer().frame(height: 120)
                     }
-                    .padding(.horizontal)
-                    
-                    // Bottom Padding for custom tab bar
-                    Spacer().frame(height: 120)
                 }
             }
         }
         .navigationBarHidden(true)
     }
-}
 }
 
 struct SettingsRow: View {

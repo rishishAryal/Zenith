@@ -1,10 +1,8 @@
 import SwiftUI
-import SwiftData
 
 struct MoneySourcesView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \MoneySource.name) private var sources: [MoneySource]
     @AppStorage("currency") private var selectedCurrency = "USD"
     
     @State private var showingAddSource = false
@@ -49,7 +47,7 @@ struct MoneySourcesView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
-                        if sources.isEmpty {
+                        if appViewModel.moneySources.isEmpty {
                             VStack(spacing: 20) {
                                 Image(systemName: "building.columns")
                                     .font(.system(size: 60))
@@ -63,7 +61,7 @@ struct MoneySourcesView: View {
                             .padding(.horizontal, 40)
                         } else {
                             VStack(spacing: 12) {
-                                ForEach(sources) { source in
+                                ForEach(appViewModel.moneySources) { source in
                                     Button(action: { editingSource = source }) {
                                         SourceRow(source: source, currency: selectedCurrency)
                                     }
@@ -80,11 +78,13 @@ struct MoneySourcesView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingAddSource) {
             AddSourceView()
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.8)])
                 .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $editingSource) { source in
             EditSourceView(source: source)
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.8)])
                 .presentationBackground(.ultraThinMaterial)
         }
@@ -132,7 +132,7 @@ struct SourceRow: View {
 }
 
 struct AddSourceView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
@@ -159,11 +159,17 @@ struct AddSourceView: View {
                     
                     Spacer()
                     
-                    Button("Register") { save() }
-                        .font(.headline)
-                        .foregroundColor(AppTheme.primary)
-                        .disabled(name.isEmpty)
-                        .opacity(name.isEmpty ? 0.5 : 1)
+                    Button("Register") { 
+                        Task {
+                            let source = MoneySource(name: name, balance: balance, icon: icon, includeInBudget: includeInBudget)
+                            await appViewModel.addMoneySource(source)
+                            dismiss()
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundColor(AppTheme.primary)
+                    .disabled(name.isEmpty)
+                    .opacity(name.isEmpty ? 0.5 : 1)
                 }
                 .padding(.top, 10)
                 
@@ -220,21 +226,14 @@ struct AddSourceView: View {
                 }
                 
                 Spacer()
-                
             }
             .padding(24)
         }
     }
-    
-    private func save() {
-        let source = MoneySource(name: name, balance: balance, icon: icon, includeInBudget: includeInBudget)
-        modelContext.insert(source)
-        dismiss()
-    }
 }
 
 struct EditSourceView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     let source: MoneySource
     
@@ -266,11 +265,20 @@ struct EditSourceView: View {
                     
                     Spacer()
                     
-                    Button("Update") { save() }
-                        .font(.headline)
-                        .foregroundColor(AppTheme.primary)
-                        .disabled(name.isEmpty)
-                        .opacity(name.isEmpty ? 0.5 : 1)
+                    Button("Update") { 
+                        Task {
+                            var updatedSource = source
+                            updatedSource.name = name
+                            updatedSource.balance = balance
+                            updatedSource.includeInBudget = includeInBudget
+                            await appViewModel.updateMoneySource(updatedSource)
+                            dismiss()
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundColor(AppTheme.primary)
+                    .disabled(name.isEmpty)
+                    .opacity(name.isEmpty ? 0.5 : 1)
                 }
                 .padding(.top, 10)
                 
@@ -301,7 +309,12 @@ struct EditSourceView: View {
                 Spacer()
                 
                 VStack(spacing: 12) {
-                    Button(role: .destructive, action: delete) {
+                    Button(role: .destructive, action: {
+                        Task {
+                            await appViewModel.deleteMoneySource(source)
+                            dismiss()
+                        }
+                    }) {
                         Text("Remove Source")
                             .font(Font.headline(size: 16))
                             .foregroundColor(AppTheme.error)
@@ -311,17 +324,5 @@ struct EditSourceView: View {
             }
             .padding(24)
         }
-    }
-    
-    private func save() {
-        source.name = name
-        source.balance = balance
-        source.includeInBudget = includeInBudget
-        dismiss()
-    }
-    
-    private func delete() {
-        modelContext.delete(source)
-        dismiss()
     }
 }

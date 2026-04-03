@@ -1,11 +1,10 @@
 import SwiftUI
-import SwiftData
+import Combine
 
 struct SettlementsView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     @AppStorage("currency") private var selectedCurrency = "USD"
-    @Query(sort: \Settlement.dateCreated, order: .reverse) private var settlements: [Settlement]
     
     @State private var showingAdd = false
     @State private var filter: SettlementFilter = .active
@@ -18,8 +17,8 @@ struct SettlementsView: View {
     
     var filteredSettlements: [Settlement] {
         switch filter {
-        case .active: return settlements.filter { !$0.isCompleted }
-        case .completed: return settlements.filter { $0.isCompleted }
+        case .active: return appViewModel.settlements.filter { !$0.isCompleted }
+        case .completed: return appViewModel.settlements.filter { $0.isCompleted }
         }
     }
     
@@ -86,7 +85,7 @@ struct SettlementsView: View {
                     ScrollView {
                         LazyVStack(spacing: 16) {
                             ForEach(filteredSettlements) { settlement in
-                                NavigationLink(destination: SettlementDetailView(settlement: settlement)) {
+                                NavigationLink(destination: SettlementDetailView(settlement: settlement).environmentObject(appViewModel)) {
                                     SettlementRow(settlement: settlement, currency: selectedCurrency)
                                 }
                                 .buttonStyle(.plain)
@@ -101,8 +100,12 @@ struct SettlementsView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingAdd) {
             AddSettlementView()
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.8)])
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .refreshable {
+            await appViewModel.refresh(categories: [.settlements])
         }
     }
 }

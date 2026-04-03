@@ -1,28 +1,25 @@
 import SwiftUI
-import SwiftData
 
 struct PlannedFlowView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \PlannedTransaction.dueDate, order: .forward) private var plannedItems: [PlannedTransaction]
+    @EnvironmentObject var appViewModel: AppViewModel
     
     let searchText: String
     let filterOption: TransactionsView.FilterOption
     
     private var filteredItems: [PlannedTransaction] {
-        var filtered = plannedItems
+        var filtered = appViewModel.plannedTransactions
         
-        // Filter by type
         switch filterOption {
         case .expense: filtered = filtered.filter { $0.safeType == .outgoing }
         case .income: filtered = filtered.filter { $0.safeType == .incoming }
         case .all: break
         }
         
-        // Filter by search
         if !searchText.isEmpty {
-            filtered = filtered.filter {
-                $0.category.localizedCaseInsensitiveContains(searchText) ||
-                ($0.note ?? "").localizedCaseInsensitiveContains(searchText)
+            filtered = filtered.filter { item in
+                let catName = appViewModel.categories.first(where: { $0.id == item.categoryId })?.name ?? ""
+                return catName.localizedCaseInsensitiveContains(searchText) ||
+                       (item.note ?? "").localizedCaseInsensitiveContains(searchText)
             }
         }
         
@@ -47,6 +44,7 @@ struct PlannedFlowView: View {
                     LazyVStack(spacing: 20) {
                         ForEach(filteredItems) { item in
                             PlannedTransactionRow(item: item)
+                                .environmentObject(appViewModel)
                         }
                     }
                     .padding(.horizontal)
@@ -59,16 +57,18 @@ struct PlannedFlowView: View {
 }
 
 struct PlannedTransactionRow: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @AppStorage("currency") private var selectedCurrency = "USD"
     let item: PlannedTransaction
     
     @State private var isSettling = false
+    @State private var showingSourcePicker = false
     
     var body: some View {
         HStack(spacing: 16) {
-            // Icon
-            let (icon, color) = iconAndColor(for: item.category)
+            let cat = appViewModel.categories.first(where: { $0.id == item.categoryId })
+            let icon = cat?.iconName ?? "tag.fill"
+            let color = Color(hex: cat?.colorHex ?? "#9E9E9E")
             
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -80,7 +80,7 @@ struct PlannedTransactionRow: View {
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.category)
+                Text(cat?.name ?? "Other")
                     .font(Font.headline(size: 16, weight: .bold))
                     .foregroundColor(AppTheme.onSurface)
                 
@@ -96,7 +96,7 @@ struct PlannedTransactionRow: View {
                     .font(Font.headline(size: 18, weight: .heavy))
                     .foregroundColor(item.safeType == .outgoing ? AppTheme.onSurface : AppTheme.secondary)
                 
-                Button(action: settle) {
+                Button(action: { showingSourcePicker = true }) {
                     HStack(spacing: 4) {
                         if isSettling {
                             ProgressView().tint(.white).scaleEffect(0.7)
@@ -117,43 +117,44 @@ struct PlannedTransactionRow: View {
         }
         .padding(16)
         .glassCard()
+        .confirmationDialog("Settle Planned Flow", isPresented: $showingSourcePicker, titleVisibility: .visible) {
+            ForEach(appViewModel.moneySources) { source in
+                Button(source.name) {
+                    settle(into: source.id)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Select the source account for this \(item.safeType == .outgoing ? "expense" : "income").")
+        }
         .contextMenu {
             Button(role: .destructive) {
-                modelContext.delete(item)
+                Task {
+                    await appViewModel.deletePlannedTransaction(item)
+                }
             } label: {
                 Label("Remove Plan", systemImage: "trash")
             }
         }
     }
     
-    private func settle() {
+    private func settle(into sourceId: UUID) {
         withAnimation {
             isSettling = true
         }
         
-        // Delay slightly for effect
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task {
             let transaction = Transaction(
                 amount: item.amount,
-                category: item.category,
+                categoryId: item.categoryId ?? UUID(), // Fallback if needed
                 note: item.note,
                 date: .now,
-                type: item.safeType
+                type: item.safeType,
+                moneySourceId: sourceId
             )
-            modelContext.insert(transaction)
-            modelContext.delete(item)
-        }
-    }
-    
-    private func iconAndColor(for category: String) -> (String, Color) {
-        switch category {
-        case "Food", "Dining": return ("fork.knife", AppTheme.secondary)
-        case "Travel": return ("airplane", AppTheme.tertiary)
-        case "Subscriptions", "Media": return ("sparkles", AppTheme.primaryDim)
-        case "Shopping", "Electronics": return ("bag.fill", AppTheme.primary)
-        case "Utilities": return ("bolt.fill", AppTheme.secondaryDim)
-        case "Health": return ("heart.fill", AppTheme.error)
-        default: return ("tag.fill", AppTheme.primary)
+            await appViewModel.addTransaction(transaction)
+            await appViewModel.deletePlannedTransaction(item)
+            isSettling = false
         }
     }
 }

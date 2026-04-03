@@ -1,9 +1,7 @@
 import SwiftUI
-import SwiftData
 
 struct TransactionsView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
+    @EnvironmentObject var appViewModel: AppViewModel
     
     @State private var searchText = ""
     @State private var sortOption: SortOption = .newest
@@ -33,7 +31,7 @@ struct TransactionsView: View {
     }
     
     private var filteredAndSortedTransactions: [Transaction] {
-        var filtered = transactions
+        var filtered = appViewModel.transactions
         switch filterOption {
         case .expense: filtered = filtered.filter { $0.safeType == .outgoing }
         case .income: filtered = filtered.filter { $0.safeType == .incoming }
@@ -41,9 +39,10 @@ struct TransactionsView: View {
         }
         
         if !searchText.isEmpty {
-            filtered = filtered.filter {
-                $0.category.localizedCaseInsensitiveContains(searchText) ||
-                ($0.note ?? "").localizedCaseInsensitiveContains(searchText)
+            filtered = filtered.filter { tx in
+                let categoryName = appViewModel.categories.first(where: { $0.id == tx.categoryId })?.name ?? ""
+                return categoryName.localizedCaseInsensitiveContains(searchText) ||
+                (tx.note ?? "").localizedCaseInsensitiveContains(searchText)
             }
         }
         
@@ -55,7 +54,6 @@ struct TransactionsView: View {
         }
     }
     
-    // Group transactions by Date if applicable
     private var groupedTransactions: [(Date?, [Transaction])] {
         let items = filteredAndSortedTransactions
         
@@ -66,7 +64,6 @@ struct TransactionsView: View {
                 Calendar.current.startOfDay(for: transaction.date)
             }
             let array: [(Date?, [Transaction])] = grouped.map { ($0.key, $0.value) }
-            // For newest, descending. For oldest, ascending.
             if sortOption == .newest {
                 return array.sorted { ($0.0 ?? Date.distantPast) > ($1.0 ?? Date.distantPast) }
             } else {
@@ -80,7 +77,6 @@ struct TransactionsView: View {
             LivingBackground()
             
             VStack(spacing: 0) {
-                // Custom Header over glass
                 HStack {
                     Text("Transactions")
                         .font(Font.headline(size: 24, weight: .bold))
@@ -95,7 +91,6 @@ struct TransactionsView: View {
                 .padding(.horizontal)
                 .padding(.top, 10)
                 
-                // Tab Picker
                 Picker("Tab", selection: $selectedTab) {
                     ForEach(TransactionTab.allCases) { tab in
                         Text(tab.rawValue).tag(tab)
@@ -106,9 +101,7 @@ struct TransactionsView: View {
                 .padding(.top, 10)
                 .colorMultiply(AppTheme.primary)
                 
-                // Filter and Search Toolbar
                 VStack(spacing: 12) {
-                    // Search Bar
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(AppTheme.onSurfaceVariant)
@@ -120,7 +113,6 @@ struct TransactionsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(.top)
                     
-                    // Filters & Add Button
                     HStack {
                         Menu {
                             Picker("Filter", selection: $filterOption) {
@@ -192,8 +184,12 @@ struct TransactionsView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingAddPlanned) {
             AddPlannedTransactionView()
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.85)])
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .refreshable {
+            await appViewModel.refresh(categories: [.transactions, .plannedTransactions])
         }
     }
     
@@ -249,12 +245,11 @@ struct TransactionsView: View {
                     }
                     .padding(.horizontal)
                     .padding(.vertical)
-                    .padding(.bottom, 120) // padding for custom tab bar
+                    .padding(.bottom, 120)
                 }
             }
         }
     }
-
     
     private func dateLabel(for date: Date?) -> String {
         guard let validDate = date else { return "All" }
@@ -269,22 +264,25 @@ struct TransactionsView: View {
 }
 
 struct TransactionRow: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @AppStorage("currency") private var selectedCurrency = "USD"
-    @Query private var sources: [MoneySource]
     
     let transaction: Transaction
     @State private var isDeleted = false
     
-    private var sourceName: String {
-        sources.first(where: { $0.id == transaction.sourceId })?.name ?? "No Source"
+    private var source: MoneySource? {
+        appViewModel.moneySources.first(where: { $0.id == transaction.moneySourceId })
+    }
+    
+    private var category: Category? {
+        appViewModel.categories.first(where: { $0.id == transaction.categoryId })
     }
     
     var body: some View {
         if !isDeleted {
             HStack(spacing: 20) {
-                // Icon based on category
-                let (icon, color) = iconAndColor(for: transaction.category)
+                let icon = category?.iconName ?? "tag.fill"
+                let color = Color(hex: category?.colorHex ?? "#9E9E9E")
                 
                 ZStack {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -299,14 +297,14 @@ struct TransactionRow: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(transaction.category)
+                    Text(category?.name ?? "Other")
                         .font(Font.headline(size: 18, weight: .bold))
                         .foregroundColor(AppTheme.onSurface)
                     
                     HStack(spacing: 4) {
                         Image(systemName: "creditcard.fill")
                             .font(.system(size: 8))
-                        Text(sourceName.uppercased())
+                        Text(source?.name.uppercased() ?? "NO SOURCE")
                             .font(Font.bodyText(size: 10, weight: .bold))
                             .tracking(1)
                     }
@@ -347,7 +345,6 @@ struct TransactionRow: View {
                     }
                 }
                 
-                // Add Trash Button
                 Button(action: delete) {
                     Image(systemName: "trash.circle.fill")
                         .font(.system(size: 24))
@@ -363,33 +360,12 @@ struct TransactionRow: View {
     }
     
     private func delete() {
-        // Revert balance before deletion
-        if let source = sources.first(where: { $0.id == transaction.sourceId }) {
-            if transaction.safeType == .outgoing {
-                source.balance += transaction.amount
-            } else {
-                source.balance -= transaction.amount
-            }
-        }
-        
         withAnimation(.easeOut) {
             isDeleted = true
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            modelContext.delete(transaction)
-        }
-    }
-    
-    private func iconAndColor(for category: String) -> (String, Color) {
-        switch category {
-        case "Food", "Dining": return ("fork.knife", AppTheme.secondary)
-        case "Travel": return ("airplane", AppTheme.tertiary)
-        case "Subscriptions", "Media": return ("sparkles", AppTheme.primaryDim)
-        case "Shopping", "Electronics": return ("bag.fill", AppTheme.primary)
-        case "Utilities": return ("bolt.fill", AppTheme.secondaryDim)
-        case "Health": return ("heart.fill", AppTheme.error)
-        default: return ("tag.fill", AppTheme.primary)
+        Task {
+            await appViewModel.deleteTransaction(transaction)
         }
     }
 }

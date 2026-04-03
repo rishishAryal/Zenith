@@ -1,31 +1,25 @@
 import SwiftUI
-import SwiftData
 
 struct AddTransactionView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var appViewModel: AppViewModel
     
     @AppStorage("currency") private var selectedCurrency = "USD"
     
-    @Query(sort: \Category.name) private var categories: [Category]
-    @Query(sort: \MoneySource.name) private var sources: [MoneySource]
-    
     @State private var amount: Double?
     @State private var transactionType: TransactionType = .outgoing
-    @State private var selectedCategory: String = ""
+    @State private var selectedCategoryId: UUID?
     @State private var selectedSourceId: UUID?
     @State private var note: String = ""
     @FocusState private var isInputFocused: Bool
     
-    // Filtered sources based on logic: Expenses = Included only, Income = All
     private var filteredSources: [MoneySource] {
         if transactionType == .outgoing {
-            return sources.filter { $0.includeInBudget }
+            return appViewModel.moneySources.filter { $0.includeInBudget }
         } else {
-            return sources
+            return appViewModel.moneySources
         }
     }
-    
     
     var body: some View {
         VStack(spacing: 0) {
@@ -41,11 +35,12 @@ struct AddTransactionView: View {
                 }
             }
         }
-       
         .onAppear {
-            selectedSourceId = filteredSources.first?.id
-            if selectedCategory.isEmpty {
-                selectedCategory = categories.first?.name ?? ""
+            if selectedSourceId == nil {
+                selectedSourceId = filteredSources.first?.id
+            }
+            if selectedCategoryId == nil {
+                selectedCategoryId = appViewModel.categories.first?.id
             }
         }
         .background(AppTheme.surfaceCard.opacity(0.95))
@@ -58,8 +53,6 @@ struct AddTransactionView: View {
             }
         }
     }
-    
-    // MARK: - Subviews
     
     private var header: some View {
         HStack {
@@ -106,8 +99,7 @@ struct AddTransactionView: View {
         .padding(.horizontal, 30)
         .padding(.bottom, 30)
         .colorMultiply(AppTheme.primary)
-        .onChange(of: transactionType) { _, _ in
-            // Reset source selection if it's no longer valid in the filtered list
+        .onChange(of: transactionType) { oldValue, newValue in
             if !filteredSources.contains(where: { $0.id == selectedSourceId }) {
                 selectedSourceId = filteredSources.first?.id
             }
@@ -122,7 +114,7 @@ struct AddTransactionView: View {
                 .tracking(3)
                 .padding(.horizontal, 30)
             
-            if sources.isEmpty {
+            if appViewModel.moneySources.isEmpty {
                 Text("No balance sources found. Add one in Settings.")
                     .font(Font.bodyText(size: 12))
                     .foregroundColor(AppTheme.error)
@@ -192,11 +184,11 @@ struct AddTransactionView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 20) {
                     Spacer().frame(width: 10)
-                    ForEach(categories) { category in
-                        let isSelected = selectedCategory == category.name
+                    ForEach(appViewModel.categories) { category in
+                        let isSelected = selectedCategoryId == category.id
                         Button {
                             withAnimation(.spring()) {
-                                selectedCategory = category.name
+                                selectedCategoryId = category.id
                             }
                         } label: {
                             VStack(spacing: 12) {
@@ -245,33 +237,27 @@ struct AddTransactionView: View {
         .padding(.bottom, 40)
     }
     
-    
     private var canSave: Bool {
-        (amount ?? 0) > 0 && selectedSourceId != nil
+        (amount ?? 0) > 0 && selectedSourceId != nil && selectedCategoryId != nil
     }
     
     private func save() {
         guard let validAmount = amount, validAmount > 0,
-              let source = sources.first(where: { $0.id == selectedSourceId }) else { return }
-        
-        // Update balance
-        if transactionType == .outgoing {
-            source.balance -= validAmount
-        } else {
-            source.balance += validAmount
-        }
+              let selectedSourceId = selectedSourceId,
+              let selectedCategoryId = selectedCategoryId else { return }
         
         let newTransaction = Transaction(
             amount: validAmount,
-            category: selectedCategory,
+            categoryId: selectedCategoryId,
             note: note.isEmpty ? nil : note,
             date: .now,
             type: transactionType,
-            sourceId: source.id
+            moneySourceId: selectedSourceId
         )
-        modelContext.insert(newTransaction)
-        dismiss()
+        
+        Task {
+            await appViewModel.addTransaction(newTransaction)
+            dismiss()
+        }
     }
 }
-
-// Note: CustomCorner removed since we are relying on native sheet curves

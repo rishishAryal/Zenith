@@ -1,8 +1,7 @@
 import SwiftUI
-import SwiftData
 
 struct SettlementDetailView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     @AppStorage("currency") private var selectedCurrency = "USD"
     
@@ -180,13 +179,16 @@ struct SettlementDetailView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingPaymentSheet) {
             LogPaymentView(settlement: settlement)
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.85)])
                 .presentationBackground(.ultraThinMaterial)
         }
     }
     
     private func delete() {
-        modelContext.delete(settlement)
-        dismiss()
+        Task {
+            await appViewModel.deleteSettlement(settlement)
+            dismiss()
+        }
     }
 }

@@ -1,16 +1,14 @@
 import SwiftUI
-import SwiftData
 
 struct SavingsGoalsView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \SavingsGoal.targetAmount, order: .reverse) private var goals: [SavingsGoal]
     @AppStorage("currency") private var selectedCurrency = "USD"
     @State private var showingAddSheet = false
     var isNavigated: Bool = false
     
     var totalSaved: Double {
-        goals.reduce(0) { $0 + $1.currentAmount }
+        appViewModel.goals.reduce(0) { $0 + $1.currentAmount }
     }
     
     var body: some View {
@@ -31,7 +29,7 @@ struct SavingsGoalsView: View {
                         }
                     } else {
                         Spacer()
-                            .frame(width: 44) // Balancing the plus button
+                            .frame(width: 44)
                     }
                     
                     Spacer()
@@ -87,7 +85,7 @@ struct SavingsGoalsView: View {
                         .padding(.horizontal)
                         
                         // Goals Grid
-                        if goals.isEmpty {
+                        if appViewModel.goals.isEmpty {
                             VStack(spacing: 16) {
                                 Image(systemName: "target")
                                     .font(.system(size: 48))
@@ -99,7 +97,7 @@ struct SavingsGoalsView: View {
                             .padding(.top, 40)
                         } else {
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-                                ForEach(goals) { goal in
+                                ForEach(appViewModel.goals) { goal in
                                     GoalCard(goal: goal)
                                 }
                             }
@@ -114,14 +112,18 @@ struct SavingsGoalsView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingAddSheet) {
             AddGoalView()
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.8)])
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .refreshable {
+            await appViewModel.refresh(categories: [.goals])
         }
     }
 }
 
 struct GoalCard: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @AppStorage("currency") private var selectedCurrency = "USD"
     let goal: SavingsGoal
     @State private var showingDepositSheet = false
@@ -192,8 +194,8 @@ struct GoalCard: View {
         .alert("Delete Goal?", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                withAnimation {
-                    modelContext.delete(goal)
+                Task {
+                    await appViewModel.deleteGoal(goal)
                 }
             }
         } message: {
@@ -201,6 +203,7 @@ struct GoalCard: View {
         }
         .sheet(isPresented: $showingDepositSheet) {
             DepositView(goal: goal)
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.4)])
                 .presentationBackground(.ultraThinMaterial)
         }
@@ -208,7 +211,7 @@ struct GoalCard: View {
 }
 
 struct AddGoalView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
@@ -234,15 +237,19 @@ struct AddGoalView: View {
                     
                     Spacer()
                     
-                    Button("Register") { save() }
-                        .font(.headline)
-                        .foregroundColor(AppTheme.primary)
-                        .disabled(name.isEmpty || targetAmount <= 0)
-                        .opacity(name.isEmpty || targetAmount <= 0 ? 0.5 : 1)
+                    Button("Register") { 
+                        Task {
+                            let goal = SavingsGoal(name: name, targetAmount: targetAmount, icon: icon)
+                            await appViewModel.addGoal(goal)
+                            dismiss()
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundColor(AppTheme.primary)
+                    .disabled(name.isEmpty || targetAmount <= 0)
+                    .opacity(name.isEmpty || targetAmount <= 0 ? 0.5 : 1)
                 }
                 .padding(.top, 10)
-                
-               
                 
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -289,21 +296,14 @@ struct AddGoalView: View {
                 }
                 
                 Spacer()
-                
             }
             .padding(24)
         }
     }
-    
-    private func save() {
-        guard !name.isEmpty && targetAmount > 0 else { return }
-        let goal = SavingsGoal(name: name, targetAmount: targetAmount, icon: icon)
-        modelContext.insert(goal)
-        dismiss()
-    }
 }
 
 struct DepositView: View {
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     let goal: SavingsGoal
     @State private var amount: Double = 0
@@ -324,8 +324,10 @@ struct DepositView: View {
                 Spacer()
                 
                 Button("Save") {
-                    goal.currentAmount += amount
-                    dismiss()
+                    Task {
+                        await appViewModel.depositToGoal(goal, amount: amount)
+                        dismiss()
+                    }
                 }
                 .font(.headline)
                 .foregroundColor(AppTheme.primary)

@@ -1,27 +1,17 @@
 import SwiftUI
-import SwiftData
 
 struct AddPlannedTransactionView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     
     @AppStorage("currency") private var selectedCurrency = "USD"
     
     @State private var amount: Double = 0
     @State private var transactionType: TransactionType = .outgoing
-    @State private var selectedCategory: String = "Shop"
+    @State private var selectedCategoryId: UUID?
     @State private var note: String = ""
     @State private var dueDate: Date = .now
     @FocusState private var isInputFocused: Bool
-    
-    let categories = [
-        ("Shop", "cart.fill"),
-        ("Dining", "fork.knife"),
-        ("Travel", "airplane"),
-        ("Media", "play.tv.fill"),
-        ("Utilities", "bolt.fill"),
-        ("Health", "heart.fill")
-    ]
     
     var body: some View {
         ZStack {
@@ -43,7 +33,9 @@ struct AddPlannedTransactionView: View {
             }
             .padding(24)
             .onAppear {
-                if amount <= 0 { amount = 0 }
+                if selectedCategoryId == nil {
+                    selectedCategoryId = appViewModel.categories.first?.id
+                }
             }
             .onTapGesture {
                 isInputFocused = false
@@ -57,9 +49,9 @@ struct AddPlannedTransactionView: View {
                     .fontWeight(.bold)
                     .foregroundColor(AppTheme.primary)
                 }
+            }
         }
     }
-}
 
     private var header: some View {
         HStack {
@@ -78,8 +70,8 @@ struct AddPlannedTransactionView: View {
             Button("Add") { savePlan() }
                 .font(.headline)
                 .foregroundColor(AppTheme.primary)
-                .disabled(amount <= 0)
-                .opacity(amount <= 0 ? 0.5 : 1)
+                .disabled(amount <= 0 || selectedCategoryId == nil)
+                .opacity(amount <= 0 || selectedCategoryId == nil ? 0.5 : 1)
         }
     }
     
@@ -136,9 +128,9 @@ struct AddPlannedTransactionView: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(categories, id: \.0) { cat in
-                        CategoryItem(cat: cat, isSelected: selectedCategory == cat.0) {
-                            selectedCategory = cat.0
+                    ForEach(appViewModel.categories) { cat in
+                        CategoryPlannedItem(cat: cat, isSelected: selectedCategoryId == cat.id) {
+                            selectedCategoryId = cat.id
                         }
                     }
                 }
@@ -161,36 +153,38 @@ struct AddPlannedTransactionView: View {
         }
     }
     
-    
     private func savePlan() {
-        let plan = PlannedTransaction(
-            amount: amount,
-            category: selectedCategory,
-            note: note.isEmpty ? nil : note,
-            dueDate: dueDate,
-            type: transactionType
-        )
-        modelContext.insert(plan)
-        dismiss()
+        guard let catId = selectedCategoryId else { return }
+        
+        Task {
+            let plan = PlannedTransaction(
+                amount: amount,
+                categoryId: catId,
+                note: note.isEmpty ? nil : note,
+                dueDate: dueDate,
+                type: transactionType
+            )
+            await appViewModel.addPlannedTransaction(plan)
+            dismiss()
+        }
     }
 }
 
-// Sub-component to reduce complexity
-struct CategoryItem: View {
-    let cat: (String, String)
+struct CategoryPlannedItem: View {
+    let cat: Category
     let isSelected: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
-                Image(systemName: cat.1)
+                Image(systemName: cat.iconName)
                     .font(.title2)
-                Text(cat.0)
+                Text(cat.name)
                     .font(Font.bodyText(size: 10, weight: .bold))
             }
             .foregroundColor(isSelected ? .white : AppTheme.onSurfaceVariant)
-            .frame(width: 70, height: 70)
+            .frame(width: 80, height: 80)
             .background(isSelected ? AnyView(AppTheme.primaryGradient) : AnyView(AppTheme.surfaceContainer))
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }

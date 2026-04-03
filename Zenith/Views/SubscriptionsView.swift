@@ -1,16 +1,14 @@
 import SwiftUI
-import SwiftData
 
 struct SubscriptionsView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Subscription.billingDay) private var subscriptions: [Subscription]
     @AppStorage("currency") private var selectedCurrency = "USD"
     
     @State private var showingAddSheet = false
     
     var totalMonthlySpent: Double {
-        subscriptions.reduce(0) { $0 + $1.amount }
+        appViewModel.subscriptions.reduce(0) { $0 + $1.amount }
     }
     
     var body: some View {
@@ -69,7 +67,7 @@ struct SubscriptionsView: View {
                         .padding(.horizontal)
                         
                         // List
-                        if subscriptions.isEmpty {
+                        if appViewModel.subscriptions.isEmpty {
                             VStack(spacing: 16) {
                                 Image(systemName: "calendar.badge.plus")
                                     .font(.system(size: 48))
@@ -81,7 +79,7 @@ struct SubscriptionsView: View {
                             .padding(.top, 60)
                         } else {
                             VStack(spacing: 16) {
-                                ForEach(subscriptions) { sub in
+                                ForEach(appViewModel.subscriptions) { sub in
                                     SubscriptionRow(sub: sub)
                                 }
                             }
@@ -96,14 +94,18 @@ struct SubscriptionsView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingAddSheet) {
             AddSubscriptionView()
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.8)])
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .refreshable {
+            await appViewModel.refresh(categories: [.subscriptions])
         }
     }
 }
 
 struct SubscriptionRow: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @AppStorage("currency") private var selectedCurrency = "USD"
     let sub: Subscription
     
@@ -137,7 +139,11 @@ struct SubscriptionRow: View {
                     .font(Font.headline(size: 18, weight: .heavy))
                     .foregroundColor(AppTheme.onSurface)
                 
-                Button(action: { modelContext.delete(sub) }) {
+                Button(action: {
+                    Task {
+                        await appViewModel.deleteSubscription(sub)
+                    }
+                }) {
                     Image(systemName: "trash")
                         .font(.system(size: 14))
                         .foregroundColor(AppTheme.error.opacity(0.6))
@@ -150,15 +156,18 @@ struct SubscriptionRow: View {
 }
 
 struct AddSubscriptionView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
     @State private var amount: Double = 0
     @State private var billingDay = 1
-    @State private var category = "Subscription"
+    @State private var selectedCategoryId: UUID?
     
-    private let categories = ["Entertainment", "Utility", "Food", "Health", "Tech", "Other"]
+    // Default categories for new subscriptions if no DB categories exist yet
+    private var availableCategories: [Category] {
+        appViewModel.categories
+    }
     
     var body: some View {
         ZStack {
@@ -187,7 +196,6 @@ struct AddSubscriptionView: View {
                 .padding(.top, 10)
                 
                 VStack(spacing: 24) {
-                    // Name
                     VStack(alignment: .leading, spacing: 12) {
                         Text("NAME")
                             .font(Font.bodyText(size: 10, weight: .bold))
@@ -203,7 +211,6 @@ struct AddSubscriptionView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     
-                    // Amount
                     VStack(alignment: .leading, spacing: 12) {
                         Text("MONTHLY AMOUNT")
                             .font(Font.bodyText(size: 10, weight: .bold))
@@ -220,7 +227,6 @@ struct AddSubscriptionView: View {
                     }
                     
                     HStack(spacing: 20) {
-                        // Billing Day
                         VStack(alignment: .leading, spacing: 12) {
                             Text("BILLING DAY")
                                 .font(Font.bodyText(size: 10, weight: .bold))
@@ -238,16 +244,16 @@ struct AddSubscriptionView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         
-                        // Category
                         VStack(alignment: .leading, spacing: 12) {
                             Text("CATEGORY")
                                 .font(Font.bodyText(size: 10, weight: .bold))
                                 .foregroundColor(AppTheme.onSurfaceVariant)
                                 .tracking(2)
                             
-                            Picker("Category", selection: $category) {
-                                ForEach(categories, id: \.self) { cat in
-                                    Text(cat).tag(cat)
+                            Picker("Category", selection: $selectedCategoryId) {
+                                Text("Select").tag(nil as UUID?)
+                                ForEach(availableCategories) { cat in
+                                    Text(cat.name).tag(cat.id as UUID?)
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -259,7 +265,6 @@ struct AddSubscriptionView: View {
                 }
                 
                 Spacer()
-                
             }
             .padding(24)
         }
@@ -268,21 +273,23 @@ struct AddSubscriptionView: View {
     private func save() {
         guard !name.isEmpty && amount > 0 else { return }
         
-        let icon: String = {
-            switch category {
-            case "Entertainment": return "play.tv.fill"
-            case "Utility": return "bolt.fill"
-            case "Food": return "fork.knife"
-            case "Health": return "heart.fill"
-            case "Tech": return "laptopcomputer"
-            default: return "calendar"
-            }
-        }()
+        let cat = appViewModel.categories.first(where: { $0.id == selectedCategoryId })
         
-        let sub = Subscription(name: name, amount: amount, billingDay: billingDay, category: category, icon: icon)
-        modelContext.insert(sub)
-        dismiss()
+        // Derive style from category if available, else use defaults
+        let icon = cat?.iconName ?? "calendar"
+        let color = cat?.colorHex ?? "#607D8B"
+        
+        Task {
+            let sub = Subscription(
+                name: name,
+                amount: amount,
+                billingDay: billingDay,
+                categoryId: selectedCategoryId,
+                icon: icon,
+                colorHex: color
+            )
+            await appViewModel.addSubscription(sub)
+            dismiss()
+        }
     }
 }
-
-

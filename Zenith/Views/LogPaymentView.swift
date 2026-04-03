@@ -1,12 +1,10 @@
 import SwiftUI
-import SwiftData
+import Combine
 
 struct LogPaymentView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     @AppStorage("currency") private var selectedCurrency = "USD"
-    @Query(sort: \MoneySource.name) private var sources: [MoneySource]
-    @Query private var categories: [Category]
     
     let settlement: Settlement
     
@@ -14,6 +12,7 @@ struct LogPaymentView: View {
     @State private var selectedSourceId: UUID?
     @State private var notes: String = ""
     @FocusState private var isInputFocused: Bool
+    @State private var isSaving = false
     
     var body: some View {
         ZStack {
@@ -43,13 +42,32 @@ struct LogPaymentView: View {
                     
                     Spacer()
                     
-                    Button("Apply") { savePayment() }
-                        .font(.headline)
-                        .foregroundColor(AppTheme.primary)
-                        .disabled((amount ?? 0) <= 0 || selectedSourceId == nil)
-                        .opacity(((amount ?? 0) <= 0 || selectedSourceId == nil) ? 0.5 : 1)
+                    Button {
+                        savePayment()
+                    } label: {
+                        if isSaving {
+                            ProgressView()
+                                .tint(AppTheme.primary)
+                        } else {
+                            Text("Apply")
+                                .font(.headline)
+                                .foregroundColor(AppTheme.primary)
+                        }
+                    }
+                    .disabled((amount ?? 0) <= 0 || selectedSourceId == nil || isSaving)
+                    .opacity(((amount ?? 0) <= 0 || selectedSourceId == nil || isSaving) ? 0.5 : 1)
                 }
                 .padding(.top, 10)
+                
+                if let error = appViewModel.errorMessage {
+                    Text(error)
+                        .font(Font.bodyText(size: 14))
+                        .foregroundColor(AppTheme.error)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(AppTheme.error.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -87,14 +105,26 @@ struct LogPaymentView: View {
                         
                         // Source Picker
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("SOURCE ACCOUNT")
-                                .font(Font.bodyText(size: 10, weight: .bold))
-                                .foregroundColor(AppTheme.onSurfaceVariant)
-                                .tracking(2)
+                            HStack {
+                                Text("SOURCE ACCOUNT")
+                                Spacer()
+                                if appViewModel.moneySources.isEmpty {
+                                    Text("Add a source first")
+                                        .font(Font.bodyText(size: 10, weight: .bold))
+                                        .foregroundColor(AppTheme.error)
+                                }
+                            }
+                            .font(Font.bodyText(size: 10, weight: .bold))
+                            .foregroundColor(AppTheme.onSurfaceVariant)
+                            .tracking(2)
                             
                             Picker("Select Source", selection: $selectedSourceId) {
-                                Text("Select Account").tag(nil as UUID?)
-                                ForEach(sources) { source in
+                                if appViewModel.moneySources.isEmpty {
+                                    Text("No Accounts Found").tag(nil as UUID?)
+                                } else {
+                                    Text("Select Account").tag(nil as UUID?)
+                                }
+                                ForEach(appViewModel.moneySources) { source in
                                     HStack {
                                         Image(systemName: source.icon)
                                         Text(source.name)
@@ -105,7 +135,7 @@ struct LogPaymentView: View {
                             .tint(AppTheme.onSurface)
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(AppTheme.surfaceContainer)
+                            .background(appViewModel.moneySources.isEmpty ? AppTheme.error.opacity(0.1) : AppTheme.surfaceContainer)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         
@@ -124,7 +154,6 @@ struct LogPaymentView: View {
                         }
                     }
                 }
-                
             }
             .padding(24)
         }
@@ -139,44 +168,24 @@ struct LogPaymentView: View {
             }
         }
         .onAppear {
-            // Default to full remaining amount
             amount = settlement.remainingAmount
-            // Default to first source if available
             if selectedSourceId == nil {
-                selectedSourceId = sources.first?.id
+                selectedSourceId = appViewModel.moneySources.first?.id
             }
+            appViewModel.errorMessage = nil
         }
     }
     
     private func savePayment() {
         guard let validAmount = amount, validAmount > 0, let sourceId = selectedSourceId else { return }
         
-        // 1. Update Settlement
-        settlement.remainingAmount = max(settlement.remainingAmount - validAmount, 0)
-        if settlement.remainingAmount <= 0 {
-            settlement.isCompleted = true
-        }
-        
-        // 2. Update MoneySource Balance
-        if let source = sources.first(where: { $0.id == sourceId }) {
-            if settlement.type == .payable {
-                source.balance -= validAmount // I paid someone
-            } else {
-                source.balance += validAmount // Someone paid me
+        isSaving = true
+        Task {
+            await appViewModel.paySettlement(settlement, amount: validAmount, moneySourceId: sourceId)
+            isSaving = false
+            if appViewModel.errorMessage == nil {
+                dismiss()
             }
-            
-            // 3. Create Transaction for History
-            let transaction = Transaction(
-                amount: validAmount,
-                category: "Settlement",
-                note: "Payment to/from \(settlement.personName): \(notes)",
-                date: .now,
-                type: settlement.type == .payable ? .outgoing : .incoming,
-                sourceId: sourceId
-            )
-            modelContext.insert(transaction)
         }
-        
-        dismiss()
     }
 }

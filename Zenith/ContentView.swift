@@ -1,5 +1,4 @@
 import LocalAuthentication
-import SwiftData
 import SwiftUI
 
 struct ContentView: View {
@@ -7,8 +6,9 @@ struct ContentView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var isUnlocked = false
     @State private var showSplash = true
-    @Environment(\.modelContext) private var modelContext
-    @Query private var existingCategories: [Category]
+    
+    @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var appViewModel: AppViewModel
     
     var body: some View {
         ZStack {
@@ -17,7 +17,9 @@ struct ContentView: View {
                     .transition(.opacity)
             } else {
                 Group {
-                    if !hasCompletedOnboarding {
+                    if !authManager.isAuthenticated {
+                        AuthView()
+                    } else if !hasCompletedOnboarding {
                         OnboardingView()
                     } else if requiresFaceID && !isUnlocked {
                         LockedView(isUnlocked: $isUnlocked)
@@ -27,24 +29,23 @@ struct ContentView: View {
                         }
                     }
                 }
+                
+                LoadingOverlay()
             }
         }
         .onAppear {
-            seedCategoriesIfNeeded()
-            
             // Splash transition logic
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 withAnimation(.easeInOut(duration: 0.5)) {
                     showSplash = false
                 }
-            }
-        }
-    }
-    
-    private func seedCategoriesIfNeeded() {
-        if existingCategories.isEmpty {
-            for category in Category.defaults {
-                modelContext.insert(category)
+                
+                // Fetch data if already authenticated
+                if authManager.isAuthenticated {
+                    Task {
+                        await appViewModel.refreshAll()
+                    }
+                }
             }
         }
     }
@@ -57,6 +58,8 @@ enum Tab {
 struct MainTabView: View {
     @State private var selectedTab: Tab = .dashboard
     @State private var showAdd: Bool = false
+    
+    @EnvironmentObject var appViewModel: AppViewModel
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -80,7 +83,7 @@ struct MainTabView: View {
                 TabCurveShape()
                     .fill(AppTheme.surfaceCard.opacity(0.85))
                     .background(.ultraThinMaterial)
-                    .clipShape(TabCurveShape()) // Clip to the curve itself
+                    .clipShape(TabCurveShape())
                     .frame(height: 80)
                     .shadow(color: Color.black.opacity(0.5), radius: 25, x: 0, y: 15)
                 
@@ -109,7 +112,7 @@ struct MainTabView: View {
                                 .foregroundColor(.white)
                         }
                     }
-                    .offset(y: -35) // Peak floating height
+                    .offset(y: -35)
                     .frame(width: 80)
                     
                     // Right Tabs
@@ -125,14 +128,18 @@ struct MainTabView: View {
                 }
                 .padding(.top, 10)
             }
-            .padding(.horizontal, 15) // Slightly tighter
+            .padding(.horizontal, 15)
             .padding(.bottom, 5)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .sheet(isPresented: $showAdd) {
             AddTransactionView()
+                .environmentObject(appViewModel)
                 .presentationDetents([.fraction(0.85)])
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .refreshable {
+            await appViewModel.refreshAll()
         }
     }
 }
@@ -159,7 +166,6 @@ struct TabBarButton: View {
     }
 }
 
-// Authentication Lock Screen remains mostly same but uses Theme colors
 struct LockedView: View {
     @Binding var isUnlocked: Bool
     @State private var lockJiggle = false

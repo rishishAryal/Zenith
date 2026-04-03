@@ -1,12 +1,16 @@
 import Foundation
-import SwiftData
 
-@Model
-final class Category {
+struct Category: Codable, Identifiable {
     var id: UUID
     var name: String
     var iconName: String
     var colorHex: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case iconName = "icon_name"
+        case colorHex = "color_hex"
+    }
     
     init(name: String, iconName: String = "tag.fill", colorHex: String = "#7C4DFF") {
         self.id = UUID()

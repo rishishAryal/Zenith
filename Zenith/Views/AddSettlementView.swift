@@ -1,8 +1,7 @@
 import SwiftUI
-import SwiftData
 
 struct AddSettlementView: View {
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var personName = ""
@@ -39,7 +38,7 @@ struct AddSettlementView: View {
                         .opacity(personName.isEmpty || (amount ?? 0) <= 0 ? 0.5 : 1)
                 }
                 .padding(.top, 10)
-                
+                Spacer().frame(height: 20)
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("PERSON NAME")
@@ -93,7 +92,7 @@ struct AddSettlementView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
-                
+                Spacer()
             }
             .padding(24)
         }
@@ -111,8 +110,10 @@ struct AddSettlementView: View {
     
     private func save() {
         guard let validAmount = amount, validAmount > 0 else { return }
-        let settlement = Settlement(personName: personName, amount: validAmount, type: type, notes: notes.isEmpty ? nil : notes)
-        modelContext.insert(settlement)
-        dismiss()
+        Task {
+            let settlement = Settlement(personName: personName, amount: validAmount, type: type, notes: notes.isEmpty ? nil : notes)
+            await appViewModel.addSettlement(settlement)
+            dismiss()
+        }
     }
 }

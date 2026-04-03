@@ -1,32 +1,24 @@
 import SwiftUI
-import SwiftData
 import Charts
+import Combine
 
 struct DashboardView: View {
-    @Query private var transactions: [Transaction]
-    @Query private var subscriptions: [Subscription]
-    @Query private var goals: [SavingsGoal]
-    @Query private var sources: [MoneySource]
-    @Query private var categories: [Category]
-    
+    @EnvironmentObject var appViewModel: AppViewModel
     @AppStorage("currency") private var selectedCurrency = "USD"
     
-    // Sum of outgoing expenses from currently included sources for this month
     private var totalSpent: Double {
-        // We filter transactions that were deducted from "Included" sources
-        let includedSourceIds = Set(sources.filter { $0.includeInBudget }.map { $0.id })
-        return transactions.filter { 
-            $0.safeType == .outgoing && includedSourceIds.contains($0.sourceId ?? UUID())
+        let includedSourceIds = Set(appViewModel.moneySources.filter { $0.includeInBudget }.map { $0.id })
+        return appViewModel.transactions.filter { 
+            $0.safeType == .outgoing && includedSourceIds.contains($0.moneySourceId)
         }.reduce(0) { $0 + $1.amount }
     }
     
     private var totalSubscriptionsAmount: Double {
-        subscriptions.reduce(0) { $0 + $1.amount }
+        appViewModel.subscriptions.reduce(0) { $0 + $1.amount }
     }
     
-    // The "Total Budget" is the current liquid wealth in included sources + what we've already spent
     private var availableMonthlyBudget: Double {
-        let currentBalance = sources.filter { $0.includeInBudget }.reduce(0) { $0 + $1.balance }
+        let currentBalance = appViewModel.moneySources.filter { $0.includeInBudget }.reduce(0) { $0 + $1.balance }
         return max(currentBalance + totalSpent - totalSubscriptionsAmount, 0)
     }
     
@@ -37,7 +29,7 @@ struct DashboardView: View {
     }
     
     private var remaining: Double {
-        sources.filter { $0.includeInBudget }.reduce(0) { $0 + $1.balance } - totalSubscriptionsAmount
+        appViewModel.moneySources.filter { $0.includeInBudget }.reduce(0) { $0 + $1.balance } - totalSubscriptionsAmount
     }
 
     var body: some View {
@@ -45,7 +37,6 @@ struct DashboardView: View {
             LivingBackground()
             
             VStack(spacing: 0) {
-                // Top Navigation Header
                 HStack {
                     Text("Zenith")
                         .font(Font.headline(size: 24, weight: .black))
@@ -59,94 +50,79 @@ struct DashboardView: View {
                 
                 ScrollView {
                     VStack(spacing: 30) {
-                    
-                    // Hero Ring
-                    HeroRing(
-                        totalSpent: totalSpent,
-                        remaining: remaining,
-                        progress: progress,
-                        currency: selectedCurrency
-                    )
-                    .padding(.top, 20)
-                    
-                    // Wealth Overview Section (New)
-                    if !goals.isEmpty || !subscriptions.isEmpty {
-                        VStack(alignment: .leading, spacing: 20) {
-                            Text("WEALTH OVERVIEW")
-                                .font(Font.bodyText(size: 10, weight: .bold))
-                                .foregroundColor(AppTheme.onSurfaceVariant)
-                                .tracking(2)
-                                .padding(.horizontal)
+                        HeroRing(
+                            totalSpent: totalSpent,
+                            remaining: remaining,
+                            progress: progress,
+                            currency: selectedCurrency
+                        )
+                        .padding(.top, 20)
+                        
+                        if !appViewModel.goals.isEmpty || !appViewModel.subscriptions.isEmpty {
+                            VStack(alignment: .leading, spacing: 20) {
+                                Text("WEALTH OVERVIEW")
+                                    .font(Font.bodyText(size: 10, weight: .bold))
+                                    .foregroundColor(AppTheme.onSurfaceVariant)
+                                    .tracking(2)
+                                    .padding(.horizontal)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 16) {
+                                        ForEach(appViewModel.goals) { goal in
+                                            NavigationLink(destination: SavingsGoalsView(isNavigated: true).environmentObject(appViewModel)) {
+                                                DashboardGoalCard(goal: goal, currency: selectedCurrency)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        
+                                        if !appViewModel.subscriptions.isEmpty {
+                                            NavigationLink(destination: SubscriptionsView().environmentObject(appViewModel)) {
+                                                DashboardSubscriptionCard(count: appViewModel.subscriptions.count, total: totalSubscriptionsAmount, currency: selectedCurrency)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                }
+                            }
+                        }
+                        
+                        VStack(spacing: 20) {
+                            let outgoing = appViewModel.transactions.filter({ $0.safeType == .outgoing })
                             
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 16) {
-                                    // Savings Goals Cards
-                                    ForEach(goals) { goal in
-                                        NavigationLink(destination: SavingsGoalsView(isNavigated: true)) {
-                                            DashboardGoalCard(goal: goal, currency: selectedCurrency)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                    
-                                    // Subscriptions Summary Card
-                                    if !subscriptions.isEmpty {
-                                        NavigationLink(destination: SubscriptionsView()) {
-                                            DashboardSubscriptionCard(count: subscriptions.count, total: totalSubscriptionsAmount, currency: selectedCurrency)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal)
+                            if !outgoing.isEmpty {
+                                EquityPulseChart(transactions: outgoing, currency: selectedCurrency, categories: appViewModel.categories)
                             }
-                        }
-                    }
-                    
-                    // Bento Insights
-                    VStack(spacing: 20) {
-                        if !transactions.filter({ $0.safeType == .outgoing }).isEmpty {
-                            EquityPulseChart(transactions: transactions.filter({ $0.safeType == .outgoing }), currency: selectedCurrency)
-                        }
-                        
-                        let outgoing = transactions.filter({ $0.safeType == .outgoing })
-                        let grouped = Dictionary(grouping: outgoing) { $0.category }
-                        let topCategories = grouped.map { (key, value) in
-                            (category: key, amount: value.reduce(0) { $0 + $1.amount })
-                        }.sorted { $0.amount > $1.amount }
-                        
-                        if !topCategories.isEmpty {
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-                                ForEach(Array(topCategories), id: \.category) { item in
-                                    NavigationLink(destination: CategoryDetailView(categoryName: item.category)) {
-                                        let meta = iconAndColor(for: item.category)
-                                        InsightCard(icon: meta.0, title: item.category, amount: item.amount, currency: selectedCurrency, color: meta.1)
+                            
+                            let grouped = Dictionary(grouping: outgoing) { $0.categoryId }
+                            let topCategories = grouped.map { (key, value) in
+                                (categoryId: key, amount: value.reduce(0) { $0 + $1.amount })
+                            }.sorted { $0.amount > $1.amount }
+                            
+                            if !topCategories.isEmpty {
+                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
+                                    ForEach(topCategories, id: \.categoryId) { item in
+                                        if let cat = appViewModel.categories.first(where: { $0.id == item.categoryId }) {
+                                            NavigationLink(destination: CategoryDetailView(category: cat).environmentObject(appViewModel)) {
+                                                InsightCard(icon: cat.iconName, title: cat.name, amount: item.amount, currency: selectedCurrency, color: Color(hex: cat.colorHex))
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
                         }
-                        // Removed manual Transfer Wealth button as per specification
+                        .padding(.horizontal)
+                        
+                        Spacer().frame(height: 180)
                     }
-                    .padding(.horizontal)
-                    
-                    
-                    // Bottom Padding for custom tab bar + Floating Action Button
-                    Spacer().frame(height: 180)
                 }
             }
         }
         .navigationBarHidden(true)
-    }
-}
-
-    private func iconAndColor(for categoryName: String) -> (String, Color) {
-        if let category = categories.first(where: { $0.name.lowercased() == categoryName.lowercased() }) {
-            return (category.iconName, Color(hex: category.colorHex))
+        .refreshable {
+            await appViewModel.refresh(categories: [.transactions, .moneySources, .budgets, .goals, .subscriptions])
         }
-        // Fallback to General if it exists
-        if let general = categories.first(where: { $0.name == "General" }) {
-            return (general.iconName, Color(hex: general.colorHex))
-        }
-        return ("tag.fill", AppTheme.primary)
     }
 }
 
@@ -161,13 +137,11 @@ struct HeroRing: View {
     
     var body: some View {
         ZStack {
-            // Background track
             Circle()
                 .trim(from: 0.1, to: 0.9)
                 .stroke(AppTheme.surfaceContainer, style: StrokeStyle(lineWidth: 24, lineCap: .round))
                 .rotationEffect(.degrees(90))
             
-            // Progress track
             Circle()
                 .trim(from: 0.1, to: 0.1 + (animationProgress * 0.8))
                 .stroke(
@@ -177,7 +151,6 @@ struct HeroRing: View {
                 .rotationEffect(.degrees(90))
                 .shadow(color: AppTheme.primary.opacity(0.4), radius: 15, x: 0, y: 0)
             
-            // Inner Text
             VStack(spacing: 8) {
                 Text("CURRENT SPEND")
                     .font(Font.bodyText(size: 10, weight: .bold))
@@ -213,12 +186,18 @@ struct HeroRing: View {
                 animationProgress = progress
             }
         }
+        .onChange(of: progress) { oldValue, newValue in
+            withAnimation(.spring(response: 1.0, dampingFraction: 0.8)) {
+                animationProgress = newValue
+            }
+        }
     }
 }
 
 struct EquityPulseChart: View {
     let transactions: [Transaction]
     let currency: String
+    let categories: [Category]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -232,7 +211,6 @@ struct EquityPulseChart: View {
                         .foregroundColor(AppTheme.onSurfaceVariant)
                 }
                 Spacer()
-                // Removed static +12.4% text to avoid confusion with expenses
             }
             
             let sortedTransactions = Array(transactions.sorted { $0.date < $1.date }.suffix(10))
@@ -246,14 +224,14 @@ struct EquityPulseChart: View {
                 .foregroundStyle(AppTheme.secondary)
                 .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
                 
-                // Added annotation to satisfy user request "add labels so its clear"
                 PointMark(
                     x: .value("Date", transaction.date),
                     y: .value("Amount", transaction.amount)
                 )
                 .foregroundStyle(AppTheme.onSurfaceVariant)
                 .annotation(position: .top, spacing: 4) {
-                    Text(transaction.category.prefix(4).uppercased())
+                    let catName = categories.first(where: { $0.id == transaction.categoryId })?.name ?? "..."
+                    Text(catName.prefix(4).uppercased())
                         .font(Font.bodyText(size: 8, weight: .bold))
                         .foregroundColor(AppTheme.onSurfaceVariant)
                 }
@@ -319,7 +297,6 @@ struct InsightCard: View {
     }
 }
 
-// Compact Wealth Cards for Dashboard
 struct DashboardGoalCard: View {
     let goal: SavingsGoal
     let currency: String
